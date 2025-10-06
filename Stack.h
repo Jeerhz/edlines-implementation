@@ -19,12 +19,12 @@ class StackNode
 {
 public:
     int node_row;
-    int node_column;                // starting pixel (row, column)
-    int chain_parent;               // parent chain (-1 if no parent) TODO: WHY IS THERE A PARENT HERE ?
-    int stack_index;                // index in the stack -1 if not in stack
-    GradOrientation edge_direction; // direction where you are supposed to go
+    int node_column;          // starting pixel (row, column)
+    int chain_parent;         // parent chain (-1 if no parent) TODO: WHY IS THERE A PARENT HERE ?
+    int stack_index;          // index in the stack -1 if not in stack
+    Direction node_direction; // direction where you are supposed to go i.e LEFT, RIGHT, UP, DOWN
 
-    StackNode(int row = 0, int column = 0, int parent = -1, GradOrientation direction = EDGE_VERTICAL);
+    StackNode(int row = 0, int column = 0, int parent = -1, Direction direction = LEFT);
 };
 
 class ProcessStack

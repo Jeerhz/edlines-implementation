@@ -26,6 +26,10 @@ public:
     cv::Point *getPixels();
     void setPixels(cv::Point *px);
 
+    void addNewChain(cv::Point p);
+
+    void add_node(StackNode node);
+
 private:
     int chain_dir;     // Direction of the chain
     int chain_len;     // # of pixels in the chain

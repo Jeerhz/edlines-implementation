@@ -99,7 +99,6 @@ private:
     void ComputeGradient();
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
-    void sortAnchorsByGradValue();
     int *sortAnchorsByGradValue();
 
     static int LongestChain(Chain *chains, int root);

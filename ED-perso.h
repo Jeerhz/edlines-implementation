@@ -2,6 +2,7 @@
 
 #include <opencv2/opencv.hpp>
 #include "Chain.h"
+#include "PPoint.h"
 
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
@@ -38,6 +39,8 @@ public:
     std::vector<std::vector<cv::Point>> getSortedSegments();
 
     cv::Mat drawParticularSegments(std::vector<int> list);
+
+    PPoint getPoint(int offset);
 
 protected:
     int image_width;  // width of source image
