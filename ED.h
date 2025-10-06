@@ -24,10 +24,13 @@
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
 
-#define ED_LEFT 1
-#define ED_RIGHT 2
-#define ED_UP 3
-#define ED_DOWN 4
+enum Direction
+{
+    LEFT = 1,
+    RIGHT = 2,
+    UP = 3,
+    DOWN = 4
+};
 
 enum GradientOperator
 {
@@ -80,16 +83,16 @@ public:
     cv::Mat drawParticularSegments(std::vector<int> list);
 
 protected:
-    int width;  // width of source image
-    int height; // height of source image
-    uchar *srcImg;
+    int image_width;  // width of source image
+    int image_height; // height of source image
+    uchar *srcImgPointer;
     std::vector<std::vector<cv::Point>> segmentPoints;
     double sigma; // Gaussian sigma
     cv::Mat smoothImage;
-    uchar *edgeImg;   // pointer to edge image data
-    uchar *smoothImg; // pointer to smoothed image data
-    int segmentNos;
-    int minPathLen;
+    uchar *edgeImgPointer;   // pointer to edge image data
+    uchar *smoothImgPointer; // pointer to smoothed image data
+    int segmentNb;           // count the number of segments
+    int minPathLen;          // minimum length of a segment
     cv::Mat srcImage;
 
 private:
@@ -97,24 +100,23 @@ private:
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
     void sortAnchorsByGradValue();
-    int *sortAnchorsByGradValue1();
+    int *sortAnchorsByGradValue();
 
     static int LongestChain(Chain *chains, int root);
     static int RetrieveChainNos(Chain *chains, int root, int chainNos[]);
 
-    int anchorNos;
+    int anchorNb;
     std::vector<cv::Point> anchorPoints;
     std::vector<cv::Point> edgePoints;
 
     cv::Mat edgeImage;
     cv::Mat gradImage;
 
-    uchar *dirImg;  // pointer to direction image data
-    short *gradImg; // pointer to gradient image data
+    uchar *dirImgPointer;  // pointer to direction image data
+    short *gradImgPointer; // pointer to gradient image data
 
-    GradientOperator op; // operation used in gradient calculation
-    int gradThresh;      // gradient threshold
-    int anchorThresh;    // anchor point threshold
+    int gradThresh;   // gradient threshold
+    int anchorThresh; // anchor point threshold,
     int scanInterval;
     bool sumFlag;
 };

@@ -1,5 +1,4 @@
-#ifndef _NFA_
-#define _NFA_
+#pragma once
 
 #define TABSIZE 100000
 
@@ -47,5 +46,3 @@ private:
     static double log_gamma(double x);
     static int double_equal(double a, double b);
 };
-
-#endif

@@ -1,25 +1,21 @@
-#include "ED.h"
+#include "ED-perso.h"
 #include <fstream>
 
 using namespace cv;
 using namespace std;
 
-ED::ED(Mat _srcImage, GradientOperator _op, int _gradThresh, int _anchorThresh, int _scanInterval, int _minPathLen, double _sigma, bool _sumFlag)
+ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval, int _minPathLen, double _sigma, bool _sumFlag)
 {
-    // Check parameters for sanity
-    if (_gradThresh < 1)
-        _gradThresh = 1;
-    if (_anchorThresh < 0)
-        _anchorThresh = 0;
-    if (_sigma < 1.0)
-        _sigma = 1.0;
+    // Ensure coherent values in input
+    assert(_gradThresh >= 1 && "Gradient threshold must be >= 1");
+    assert(_anchorThresh >= 0 && "Anchor threshold must be >= 0");
+    assert(_sigma >= 0 && "Sigma must be >= 0");
 
     srcImage = _srcImage;
 
-    height = srcImage.rows;
-    width = srcImage.cols;
+    image_height = srcImage.rows;
+    image_width = srcImage.cols;
 
-    op = _op;
     gradThresh = _gradThresh;
     anchorThresh = _anchorThresh;
     scanInterval = _scanInterval;
@@ -27,17 +23,15 @@ ED::ED(Mat _srcImage, GradientOperator _op, int _gradThresh, int _anchorThresh, 
     sigma = _sigma;
     sumFlag = _sumFlag;
 
-    segmentNos = 0;
-    segmentPoints.push_back(vector<Point>()); // create empty vector of points for segments
+    chain = Chain(image_width, image_height);
 
-    edgeImage = Mat(height, width, CV_8UC1, Scalar(0)); // initialize edge Image
-    smoothImage = Mat(height, width, CV_8UC1);
-    gradImage = Mat(height, width, CV_16SC1); // gradImage contains short values
+    edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0)); // initialize edge Image
+    smoothImage = Mat(image_height, image_width, CV_8UC1);
+    gradImage = Mat(image_height, image_width, CV_16SC1); // gradImage contains short values
 
-    srcImg = srcImage.data;
+    srcImgPointer = srcImage.data;
 
     //// Detect Edges By Edge Drawing Algorithm  ////
-
     /*------------ SMOOTH THE IMAGE BY A GAUSSIAN KERNEL -------------------*/
     if (sigma == 1.0)
         GaussianBlur(srcImage, smoothImage, Size(5, 5), sigma);
@@ -45,11 +39,11 @@ ED::ED(Mat _srcImage, GradientOperator _op, int _gradThresh, int _anchorThresh, 
         GaussianBlur(srcImage, smoothImage, Size(), sigma); // calculate kernel from sigma
 
     // Assign Pointers from Mat's data
-    smoothImg = smoothImage.data;
-    gradImg = (short *)gradImage.data;
-    edgeImg = edgeImage.data;
+    smoothImgPointer = smoothImage.data;
+    gradImgPointer = (short *)gradImage.data;
+    edgeImgPointer = edgeImage.data;
 
-    dirImg = new unsigned char[width * height];
+    dirImgPointer = new unsigned char[image_width * image_height];
 
     /*------------ COMPUTE GRADIENT & EDGE DIRECTION MAPS -------------------*/
     ComputeGradient();
@@ -60,19 +54,18 @@ ED::ED(Mat _srcImage, GradientOperator _op, int _gradThresh, int _anchorThresh, 
     /*------------ JOIN ANCHORS -------------------*/
     JoinAnchorPointsUsingSortedAnchors();
 
-    delete[] dirImg;
+    delete[] dirImgPointer;
 }
 
 // This constructor for use of EDLines and EDCircle with ED given as constructor argument
 // only the necessary attributes are coppied
 ED::ED(const ED &cpyObj)
 {
-    height = cpyObj.height;
-    width = cpyObj.width;
+    image_height = cpyObj.image_height;
+    image_width = cpyObj.image_width;
 
     srcImage = cpyObj.srcImage.clone();
 
-    op = cpyObj.op;
     gradThresh = cpyObj.gradThresh;
     anchorThresh = cpyObj.anchorThresh;
     scanInterval = cpyObj.scanInterval;
@@ -84,14 +77,14 @@ ED::ED(const ED &cpyObj)
     smoothImage = cpyObj.smoothImage.clone();
     gradImage = cpyObj.gradImage.clone();
 
-    srcImg = srcImage.data;
+    srcImgPointer = srcImage.data;
 
-    smoothImg = smoothImage.data;
-    gradImg = (short *)gradImage.data;
-    edgeImg = edgeImage.data;
+    smoothImgPointer = smoothImage.data;
+    gradImgPointer = (short *)gradImage.data;
+    edgeImgPointer = edgeImage.data;
 
     segmentPoints = cpyObj.segmentPoints;
-    segmentNos = cpyObj.segmentNos;
+    segmentNb = cpyObj.segmentNb;
 }
 
 ED::ED()
@@ -131,12 +124,12 @@ Mat ED::getGradImage()
 
 int ED::getSegmentNo()
 {
-    return segmentNos;
+    return segmentNb;
 }
 
 int ED::getAnchorNo()
 {
-    return anchorNos;
+    return anchorNb;
 }
 
 std::vector<Point> ED::getAnchorPoints()
@@ -175,83 +168,28 @@ Mat ED::drawParticularSegments(std::vector<int> list)
 void ED::ComputeGradient()
 {
     // Initialize gradient image for row = 0, row = height-1, column=0, column=width-1
-    for (int j = 0; j < width; j++)
+    for (int col_index = 0; col_index < image_width; col_index++)
     {
-        gradImg[j] = gradImg[(height - 1) * width + j] = gradThresh - 1;
+        gradImgPointer[col_index] = gradImgPointer[(image_height - 1) * image_width + col_index] = gradThresh - 1;
     }
-    for (int i = 1; i < height - 1; i++)
+    for (int row_index = 1; row_index < image_height - 1; row_index++)
     {
-        gradImg[i * width] = gradImg[(i + 1) * width - 1] = gradThresh - 1;
+        gradImgPointer[row_index * image_width] = gradImgPointer[(row_index + 1) * image_width - 1] = gradThresh - 1;
     }
 
-    for (int i = 1; i < height - 1; i++)
+    for (int row_index = 1; row_index < image_height - 1; row_index++)
     {
-        for (int j = 1; j < width - 1; j++)
+        for (int col_index = 1; col_index < image_width - 1; col_index++)
         {
-            // Prewitt Operator in horizontal and vertical direction
-            // A B C
-            // D x E
-            // F G H
-            // gx = (C-A) + (E-D) + (H-F)
-            // gy = (F-A) + (G-B) + (H-C)
-            //
-            // To make this faster:
-            // com1 = (H-A)
-            // com2 = (C-F)
-            //
-            // For Prewitt
-            // Then: gx = com1 + com2 + (E-D) = (H-A) + (C-F) + (E-D) = (C-A) + (E-D) + (H-F)
-            //       gy = com1 - com2 + (G-B) = (H-A) - (C-F) + (G-B) = (F-A) + (G-B) + (H-C)
-            //
-            // For Sobel
-            // Then: gx = com1 + com2 + 2*(E-D) = (H-A) + (C-F) + 2*(E-D) = (C-A) + 2*(E-D) + (H-F)
-            //       gy = com1 - com2 + 2*(G-B) = (H-A) - (C-F) + 2*(G-B) = (F-A) + 2*(G-B) + (H-C)
-            //
-            // For Scharr
-            // Then: gx = 3*(com1 + com2) + 10*(E-D) = 3*(H-A) + 3*(C-F) + 10*(E-D) = 3*(C-A) + 10*(E-D) + 3*(H-F)
-            //       gy = 3*(com1 - com2) + 10*(G-B) = 3*(H-A) - 3*(C-F) + 10*(G-B) = 3*(F-A) + 10*(G-B) + 3*(H-C)
-            //
-            // For LSD
-            // A B
-            // C D
-            // gx = (B-A) + (D-C)
-            // gy = (C-A) + (D-B)
-            //
-            // To make this faster:
-            // com1 = (D-A)
-            // com2 = (B-C)
-            // Then: gx = com1 + com2 = (D-A) + (B-C) = (B-A) + (D-C)
-            //       gy = com1 - com2 = (D-A) - (B-C) = (C-A) + (D-B)
 
-            int com1 = smoothImg[(i + 1) * width + j + 1] - smoothImg[(i - 1) * width + j - 1];
-            int com2 = smoothImg[(i - 1) * width + j + 1] - smoothImg[(i + 1) * width + j - 1];
+            // see ; https://fr.wikipedia.org/wiki/Filtre_de_Sobel
+            int com1 = smoothImgPointer[(row_index + 1) * image_width + col_index + 1] - smoothImgPointer[(row_index - 1) * image_width + col_index - 1];
+            int com2 = smoothImgPointer[(row_index - 1) * image_width + col_index + 1] - smoothImgPointer[(row_index + 1) * image_width + col_index - 1];
 
-            int gx;
-            int gy;
-
-            switch (op)
-            {
-            case PREWITT_OPERATOR:
-                gx = abs(com1 + com2 + (smoothImg[i * width + j + 1] - smoothImg[i * width + j - 1]));
-                gy = abs(com1 - com2 + (smoothImg[(i + 1) * width + j] - smoothImg[(i - 1) * width + j]));
-                break;
-            case SOBEL_OPERATOR:
-                gx = abs(com1 + com2 + 2 * (smoothImg[i * width + j + 1] - smoothImg[i * width + j - 1]));
-                gy = abs(com1 - com2 + 2 * (smoothImg[(i + 1) * width + j] - smoothImg[(i - 1) * width + j]));
-                break;
-            case SCHARR_OPERATOR:
-                gx = abs(3 * (com1 + com2) + 10 * (smoothImg[i * width + j + 1] - smoothImg[i * width + j - 1]));
-                gy = abs(3 * (com1 - com2) + 10 * (smoothImg[(i + 1) * width + j] - smoothImg[(i - 1) * width + j]));
-                break;
-            case LSD_OPERATOR:
-                // com1 and com2 differs from previous operators, because LSD has 2x2 kernel
-                // TODO: Check that it corresponds to LSD paper
-                int com1 = smoothImg[(i + 1) * width + j + 1] - smoothImg[i * width + j];
-                int com2 = smoothImg[i * width + j + 1] - smoothImg[(i + 1) * width + j];
-
-                gx = abs(com1 + com2);
-                gy = abs(com1 - com2);
-            }
+            // case SOBEL_OPERATOR:
+            int gx = abs(com1 + com2 + 2 * (smoothImgPointer[row_index * image_width + col_index + 1] - smoothImgPointer[row_index * image_width + col_index - 1]));
+            int gy = abs(com1 - com2 + 2 * (smoothImgPointer[(row_index + 1) * image_width + col_index] - smoothImgPointer[(row_index - 1) * image_width + col_index]));
+            // break;
 
             int sum;
 
@@ -260,15 +198,15 @@ void ED::ComputeGradient()
             else
                 sum = (int)sqrt((double)gx * gx + gy * gy);
 
-            int index = i * width + j;
-            gradImg[index] = sum;
+            int index = row_index * image_width + col_index;
+            gradImgPointer[index] = sum;
 
             if (sum >= gradThresh)
             {
                 if (gx >= gy)
-                    dirImg[index] = EDGE_VERTICAL;
+                    dirImgPointer[index] = EDGE_VERTICAL; // it means that the border is in the vertical direction, so the edge is vertical
                 else
-                    dirImg[index] = EDGE_HORIZONTAL;
+                    dirImgPointer[index] = EDGE_HORIZONTAL;
             } // end-if
         } // end-for
     } // end-for
@@ -276,8 +214,7 @@ void ED::ComputeGradient()
 
 void ED::ComputeAnchorPoints()
 {
-    // memset(edgeImg, 0, width*height);
-    for (int i = 2; i < height - 2; i++)
+    for (int i = 2; i < image_height - 2; i++)
     {
         int start = 2;
         int inc = 1;
@@ -287,858 +224,146 @@ void ED::ComputeAnchorPoints()
             inc = scanInterval;
         }
 
-        for (int j = start; j < width - 2; j += inc)
+        for (int j = start; j < image_width - 2; j += inc)
         {
-            if (gradImg[i * width + j] < gradThresh)
+            if (gradImgPointer[i * image_width + j] < gradThresh)
                 continue;
 
-            if (dirImg[i * width + j] == EDGE_VERTICAL)
+            if (dirImgPointer[i * image_width + j] == EDGE_VERTICAL)
             {
                 // vertical edge
-                int diff1 = gradImg[i * width + j] - gradImg[i * width + j - 1];
-                int diff2 = gradImg[i * width + j] - gradImg[i * width + j + 1];
+                int diff1 = gradImgPointer[i * image_width + j] - gradImgPointer[i * image_width + j - 1];
+                int diff2 = gradImgPointer[i * image_width + j] - gradImgPointer[i * image_width + j + 1];
                 if (diff1 >= anchorThresh && diff2 >= anchorThresh)
                 {
-                    edgeImg[i * width + j] = ANCHOR_PIXEL;
+                    edgeImgPointer[i * image_width + j] = ANCHOR_PIXEL;
                     anchorPoints.push_back(Point(j, i));
                 }
             }
             else
             {
                 // horizontal edge
-                int diff1 = gradImg[i * width + j] - gradImg[(i - 1) * width + j];
-                int diff2 = gradImg[i * width + j] - gradImg[(i + 1) * width + j];
+                int diff1 = gradImgPointer[i * image_width + j] - gradImgPointer[(i - 1) * image_width + j];
+                int diff2 = gradImgPointer[i * image_width + j] - gradImgPointer[(i + 1) * image_width + j];
                 if (diff1 >= anchorThresh && diff2 >= anchorThresh)
                 {
-                    edgeImg[i * width + j] = ANCHOR_PIXEL;
+                    edgeImgPointer[i * image_width + j] = ANCHOR_PIXEL;
                     anchorPoints.push_back(Point(j, i));
                 }
             } // end-else
         } // end-for-inner
     } // end-for-outer
 
-    anchorNos = (int)anchorPoints.size(); // get the total number of anchor points
+    anchorNb = (int)anchorPoints.size(); // get the total number of anchor points
 }
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
 {
-    int *chainNos = new int[(width + height) * 8];
-
-    Point *pixels = new Point[width * height];
-    StackNode *stack = new StackNode[width * height];
-    Chain *chains = new Chain[width * height];
 
     // sort the anchor points by their gradient value in increasing order
-    int *A = sortAnchorsByGradValue1();
+    int *SortedAnchors = sortAnchorsByGradValue();
 
-    // Now join the anchors starting with the anchor having the greatest gradient value
-    int totalPixels = 0;
-
-    for (int k = anchorNos - 1; k >= 0; k--)
+    for (int k = anchorNb - 1; k >= 0; k--)
     {
         // This is the index of the anchor point in anchorPoints vector
-        int pixelOffset = A[k];
+        int anchorPixelOffset = SortedAnchors[k];
 
-        int i = pixelOffset / width;
-        int j = pixelOffset % width;
+        int anchor_row = anchorPixelOffset / image_width;
+        int anchor_col = anchorPixelOffset % image_width;
 
-        // int i = anchorPoints[k].y;
-        // int j = anchorPoints[k].x;
+        Direction anchor_dir = anchor.get_dir();
+        StackNode startNode = StackNode(anchor);
+    }
 
-        if (edgeImg[i * width + j] != ANCHOR_PIXEL)
-            continue;
+    int *ED::sortAnchorsByGradValue()
+    {
+        int SIZE = 128 * 256;
+        int *CounterTable = new int[SIZE];
+        memset(CounterTable, 0, sizeof(int) * SIZE);
 
-        chains[0].chain_len = 0;
-        chains[0].parent = -1;
-        chains[0].chain_dir = 0;
-        chains[0].children[0] = chains[0].children[1] = -1;
-        chains[0].pixels = NULL;
-
-        int noChains = 1;
-        //      * - The variable `len` is a running counter that tracks the total number of pixels added to the `pixels` array during the construction of chains for the current anchor point.
-        //      *   It is incremented each time a new pixel is added to a chain and is used to index into the `pixels` array when assigning chain pixel pointers.
-        //      *   `len` does not refer to the length of a single chain, but rather the cumulative number of pixels processed for all chains in the current anchor traversal.
-        //      * - The variable `noChains` counts the number of chains created during the traversal for the current anchor point.
-        //      * - The variable `duplicatePixelCount` counts the number of pixels encountered that are not unique edge pixels during traversal.
-        //      * - The variable `top` is the index of the top of the stack used for traversal.
-        int len = 0;
-        int duplicatePixelCount = 0;
-        int top = -1; // top of the stack
-
-        if (dirImg[i * width + j] == EDGE_VERTICAL)
+        // Count the number of grad values
+        for (int i = 1; i < image_height - 1; i++)
         {
-            stack[++top].r = i;
-            stack[top].c = j;
-            stack[top].node_direction = ED_DOWN;
-            stack[top].chain_parent = 0;
-
-            stack[++top].r = i;
-            stack[top].c = j;
-            stack[top].node_direction = ED_UP;
-            stack[top].chain_parent = 0;
-        }
-        else
-        {
-            stack[++top].r = i;
-            stack[top].c = j;
-            stack[top].node_direction = ED_RIGHT;
-            stack[top].chain_parent = 0;
-
-            stack[++top].r = i;
-            stack[top].c = j;
-            stack[top].node_direction = ED_LEFT;
-            stack[top].chain_parent = 0;
-        } // end-else
-
-        // While the stack is not empty
-    StartOfWhile:
-        while (top >= 0)
-        {
-            int r = stack[top].r;
-            int c = stack[top].c;
-            int dir = stack[top].node_direction;
-            int parent = stack[top].chain_parent;
-            top--;
-
-            if (edgeImg[r * width + c] != EDGE_PIXEL)
-                duplicatePixelCount++;
-            chains[noChains].chain_dir = dir; // traversal direction
-            chains[noChains].parent = parent;
-            chains[noChains].children[0] = chains[noChains].children[1] = -1;
-
-            int chainLen = 0;
-
-            chains[noChains].pixels = &pixels[len];
-
-            pixels[len].y = r;
-            pixels[len].x = c;
-            len++;
-            chainLen++;
-
-            if (dir == ED_LEFT)
+            for (int j = 1; j < image_width - 1; j++)
             {
-                while (dirImg[r * width + c] == EDGE_HORIZONTAL)
-                {
-                    edgeImg[r * width + c] = EDGE_PIXEL;
-
-                    // The edge is horizontal. Look LEFT
-                    //
-                    //   A
-                    //   B x
-                    //   C
-                    //
-                    // cleanup up & down pixels
-                    if (edgeImg[(r - 1) * width + c] == ANCHOR_PIXEL)
-                        edgeImg[(r - 1) * width + c] = 0;
-                    if (edgeImg[(r + 1) * width + c] == ANCHOR_PIXEL)
-                        edgeImg[(r + 1) * width + c] = 0;
-
-                    // Look if there is an edge pixel in the neighbors
-                    // If there is an edge pixel in the neighbors, move to that pixel and continue following the edge.
-                    if (edgeImg[r * width + c - 1] >= ANCHOR_PIXEL)
-                    {
-                        c--;
-                    }
-                    else if (edgeImg[(r - 1) * width + c - 1] >= ANCHOR_PIXEL)
-                    {
-                        r--;
-                        c--;
-                    }
-                    else if (edgeImg[(r + 1) * width + c - 1] >= ANCHOR_PIXEL)
-                    {
-                        r++;
-                        c--;
-                    }
-                    else
-                    {
-                        // else -- follow max. pixel to the LEFT
-                        int A = gradImg[(r - 1) * width + c - 1];
-                        int B = gradImg[r * width + c - 1];
-                        int C = gradImg[(r + 1) * width + c - 1];
-
-                        if (A > B)
-                        {
-                            if (A > C)
-                                r--;
-                            else
-                                r++;
-                        }
-                        else if (C > B)
-                            r++;
-                        c--;
-                    } // end-else
-
-                    if (edgeImg[r * width + c] == EDGE_PIXEL || gradImg[r * width + c] < gradThresh)
-                    {
-                        if (chainLen > 0)
-                        {
-                            chains[noChains].chain_len = chainLen;
-                            chains[parent].children[0] = noChains;
-                            noChains++;
-                        } // end-if
-                        goto StartOfWhile;
-                    } // end-else
-
-                    pixels[len].y = r;
-                    pixels[len].x = c;
-                    len++;
-                    chainLen++;
-                } // end-while
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_DOWN;
-                stack[top].chain_parent = noChains;
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_UP;
-                stack[top].chain_parent = noChains;
-
-                len--;
-                chainLen--;
-
-                chains[noChains].chain_len = chainLen;
-                chains[parent].children[0] = noChains;
-                noChains++;
-            }
-            else if (dir == ED_RIGHT)
-            {
-                while (dirImg[r * width + c] == EDGE_HORIZONTAL)
-                {
-                    edgeImg[r * width + c] = EDGE_PIXEL;
-
-                    // The edge is horizontal. Look RIGHT
-                    //
-                    //     A
-                    //   x B
-                    //     C
-                    //
-                    // cleanup up&down pixels
-                    if (edgeImg[(r + 1) * width + c] == ANCHOR_PIXEL)
-                        edgeImg[(r + 1) * width + c] = 0;
-                    if (edgeImg[(r - 1) * width + c] == ANCHOR_PIXEL)
-                        edgeImg[(r - 1) * width + c] = 0;
-
-                    // Look if there is an edge pixel in the neighbors
-                    if (edgeImg[r * width + c + 1] >= ANCHOR_PIXEL)
-                    {
-                        c++;
-                    }
-                    else if (edgeImg[(r + 1) * width + c + 1] >= ANCHOR_PIXEL)
-                    {
-                        r++;
-                        c++;
-                    }
-                    else if (edgeImg[(r - 1) * width + c + 1] >= ANCHOR_PIXEL)
-                    {
-                        r--;
-                        c++;
-                    }
-                    else
-                    {
-                        // else -- follow max. pixel to the RIGHT
-                        int A = gradImg[(r - 1) * width + c + 1];
-                        int B = gradImg[r * width + c + 1];
-                        int C = gradImg[(r + 1) * width + c + 1];
-
-                        if (A > B)
-                        {
-                            if (A > C)
-                                r--; // A
-                            else
-                                r++; // C
-                        }
-                        else if (C > B)
-                            r++; // C
-                        c++;
-                    } // end-else
-
-                    if (edgeImg[r * width + c] == EDGE_PIXEL || gradImg[r * width + c] < gradThresh)
-                    {
-                        if (chainLen > 0)
-                        {
-                            chains[noChains].chain_len = chainLen;
-                            chains[parent].children[1] = noChains;
-                            noChains++;
-                        } // end-if
-                        goto StartOfWhile;
-                    } // end-else
-
-                    pixels[len].y = r;
-                    pixels[len].x = c;
-                    len++;
-                    chainLen++;
-                } // end-while
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_DOWN; // Go down
-                stack[top].chain_parent = noChains;
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_UP; // Go up
-                stack[top].chain_parent = noChains;
-
-                len--;
-                chainLen--;
-
-                chains[noChains].chain_len = chainLen;
-                chains[parent].children[1] = noChains;
-                noChains++;
-            }
-            else if (dir == ED_UP)
-            {
-                while (dirImg[r * width + c] == EDGE_VERTICAL)
-                {
-                    edgeImg[r * width + c] = EDGE_PIXEL;
-
-                    // The edge is vertical. Look UP
-                    //
-                    //   A B C
-                    //     x
-                    //
-                    // Cleanup left & right pixels
-                    if (edgeImg[r * width + c - 1] == ANCHOR_PIXEL)
-                        edgeImg[r * width + c - 1] = 0;
-                    if (edgeImg[r * width + c + 1] == ANCHOR_PIXEL)
-                        edgeImg[r * width + c + 1] = 0;
-
-                    // Look if there is an edge pixel in the neighbors
-                    if (edgeImg[(r - 1) * width + c] >= ANCHOR_PIXEL)
-                    {
-                        r--;
-                    }
-                    else if (edgeImg[(r - 1) * width + c - 1] >= ANCHOR_PIXEL)
-                    {
-                        r--;
-                        c--;
-                    }
-                    else if (edgeImg[(r - 1) * width + c + 1] >= ANCHOR_PIXEL)
-                    {
-                        r--;
-                        c++;
-                    }
-                    else
-                    {
-                        // else -- follow the max. pixel UP
-                        int A = gradImg[(r - 1) * width + c - 1];
-                        int B = gradImg[(r - 1) * width + c];
-                        int C = gradImg[(r - 1) * width + c + 1];
-
-                        if (A > B)
-                        {
-                            if (A > C)
-                                c--;
-                            else
-                                c++;
-                        }
-                        else if (C > B)
-                            c++;
-                        r--;
-                    } // end-else
-
-                    if (edgeImg[r * width + c] == EDGE_PIXEL || gradImg[r * width + c] < gradThresh)
-                    {
-                        if (chainLen > 0)
-                        {
-                            chains[noChains].chain_len = chainLen;
-                            chains[parent].children[0] = noChains;
-                            noChains++;
-                        } // end-if
-                        goto StartOfWhile;
-                    } // end-else
-
-                    pixels[len].y = r;
-                    pixels[len].x = c;
-
-                    len++;
-                    chainLen++;
-                } // end-while
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_RIGHT;
-                stack[top].chain_parent = noChains;
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_LEFT;
-                stack[top].chain_parent = noChains;
-
-                len--;
-                chainLen--;
-
-                chains[noChains].chain_len = chainLen;
-                chains[parent].children[0] = noChains;
-                noChains++;
-            }
-            else
-            { // dir == DOWN
-                while (dirImg[r * width + c] == EDGE_VERTICAL)
-                {
-                    edgeImg[r * width + c] = EDGE_PIXEL;
-
-                    // The edge is vertical
-                    //
-                    //     x
-                    //   A B C
-                    //
-                    // cleanup side pixels
-                    if (edgeImg[r * width + c + 1] == ANCHOR_PIXEL)
-                        edgeImg[r * width + c + 1] = 0;
-                    if (edgeImg[r * width + c - 1] == ANCHOR_PIXEL)
-                        edgeImg[r * width + c - 1] = 0;
-
-                    // Look if there is an edge pixel in the neighbors
-                    if (edgeImg[(r + 1) * width + c] >= ANCHOR_PIXEL)
-                    {
-                        r++;
-                    }
-                    else if (edgeImg[(r + 1) * width + c + 1] >= ANCHOR_PIXEL)
-                    {
-                        r++;
-                        c++;
-                    }
-                    else if (edgeImg[(r + 1) * width + c - 1] >= ANCHOR_PIXEL)
-                    {
-                        r++;
-                        c--;
-                    }
-                    else
-                    {
-                        // else -- follow the max. pixel DOWN
-                        int A = gradImg[(r + 1) * width + c - 1];
-                        int B = gradImg[(r + 1) * width + c];
-                        int C = gradImg[(r + 1) * width + c + 1];
-
-                        if (A > B)
-                        {
-                            if (A > C)
-                                c--; // A
-                            else
-                                c++; // C
-                        }
-                        else if (C > B)
-                            c++; // C
-                        r++;
-                    } // end-else
-
-                    if (edgeImg[r * width + c] == EDGE_PIXEL || gradImg[r * width + c] < gradThresh)
-                    {
-                        if (chainLen > 0)
-                        {
-                            chains[noChains].chain_len = chainLen;
-                            chains[parent].children[1] = noChains;
-                            noChains++;
-                        } // end-if
-                        goto StartOfWhile;
-                    } // end-else
-
-                    pixels[len].y = r;
-                    pixels[len].x = c;
-
-                    len++;
-                    chainLen++;
-                } // end-while
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_RIGHT;
-                stack[top].chain_parent = noChains;
-
-                stack[++top].r = r;
-                stack[top].c = c;
-                stack[top].node_direction = ED_LEFT;
-                stack[top].chain_parent = noChains;
-
-                len--;
-                chainLen--;
-
-                chains[noChains].chain_len = chainLen;
-                chains[parent].children[1] = noChains;
-                noChains++;
-            } // end-else
-
-        } // end-while
-
-        if (len - duplicatePixelCount < minPathLen)
-        {
-            for (int k = 0; k < len; k++)
-            {
-
-                edgeImg[pixels[k].y * width + pixels[k].x] = 0;
-                edgeImg[pixels[k].y * width + pixels[k].x] = 0;
-
-            } // end-for
-        }
-        else
-        {
-
-            int noSegmentPixels = 0;
-
-            int totalLen = LongestChain(chains, chains[0].children[1]);
-
-            if (totalLen > 0)
-            {
-                // Retrieve the chainNos
-                int count = RetrieveChainNos(chains, chains[0].children[1], chainNos);
-
-                // Copy these pixels in the reverse order
-                for (int k = count - 1; k >= 0; k--)
-                {
-                    int chainNo = chainNos[k];
-
-#if 1
-                    /* See if we can erase some pixels from the last chain. This is for cleanup */
-
-                    int fr = chains[chainNo].pixels[chains[chainNo].chain_len - 1].y;
-                    int fc = chains[chainNo].pixels[chains[chainNo].chain_len - 1].x;
-
-                    int index = noSegmentPixels - 2;
-                    while (index >= 0)
-                    {
-                        int dr = abs(fr - segmentPoints[segmentNos][index].y);
-                        int dc = abs(fc - segmentPoints[segmentNos][index].x);
-
-                        if (dr <= 1 && dc <= 1)
-                        {
-                            // neighbors. Erase last pixel
-                            segmentPoints[segmentNos].pop_back();
-                            noSegmentPixels--;
-                            index--;
-                        }
-                        else
-                            break;
-                    } // end-while
-
-                    if (chains[chainNo].chain_len > 1 && noSegmentPixels > 0)
-                    {
-                        fr = chains[chainNo].pixels[chains[chainNo].chain_len - 2].y;
-                        fc = chains[chainNo].pixels[chains[chainNo].chain_len - 2].x;
-
-                        int dr = abs(fr - segmentPoints[segmentNos][noSegmentPixels - 1].y);
-                        int dc = abs(fc - segmentPoints[segmentNos][noSegmentPixels - 1].x);
-
-                        if (dr <= 1 && dc <= 1)
-                            chains[chainNo].chain_len--;
-                    } // end-if
-#endif
-
-                    for (int l = chains[chainNo].chain_len - 1; l >= 0; l--)
-                    {
-                        segmentPoints[segmentNos].push_back(chains[chainNo].pixels[l]);
-                        noSegmentPixels++;
-                    } // end-for
-
-                    chains[chainNo].chain_len = 0; // Mark as copied
-                } // end-for
-            } // end-if
-
-            totalLen = LongestChain(chains, chains[0].children[0]);
-            if (totalLen > 1)
-            {
-                // Retrieve the chainNos
-                int count = RetrieveChainNos(chains, chains[0].children[0], chainNos);
-
-                // Copy these chains in the forward direction. Skip the first pixel of the first chain
-                // due to repetition with the last pixel of the previous chain
-                int lastChainNo = chainNos[0];
-                chains[lastChainNo].pixels++;
-                chains[lastChainNo].chain_len--;
-
-                for (int k = 0; k < count; k++)
-                {
-                    int chainNo = chainNos[k];
-
-#if 1
-                    /* See if we can erase some pixels from the last chain. This is for cleanup */
-                    int fr = chains[chainNo].pixels[0].y;
-                    int fc = chains[chainNo].pixels[0].x;
-
-                    int index = noSegmentPixels - 2;
-                    while (index >= 0)
-                    {
-                        int dr = abs(fr - segmentPoints[segmentNos][index].y);
-                        int dc = abs(fc - segmentPoints[segmentNos][index].x);
-
-                        if (dr <= 1 && dc <= 1)
-                        {
-                            // neighbors. Erase last pixel
-                            segmentPoints[segmentNos].pop_back();
-                            noSegmentPixels--;
-                            index--;
-                        }
-                        else
-                            break;
-                    } // end-while
-
-                    int startIndex = 0;
-                    int chainLen = chains[chainNo].chain_len;
-                    if (chainLen > 1 && noSegmentPixels > 0)
-                    {
-                        int fr = chains[chainNo].pixels[1].y;
-                        int fc = chains[chainNo].pixels[1].x;
-
-                        int dr = abs(fr - segmentPoints[segmentNos][noSegmentPixels - 1].y);
-                        int dc = abs(fc - segmentPoints[segmentNos][noSegmentPixels - 1].x);
-
-                        if (dr <= 1 && dc <= 1)
-                        {
-                            startIndex = 1;
-                        }
-                    } // end-if
-#endif
-
-                    /* Start a new chain & copy pixels from the new chain */
-                    for (int l = startIndex; l < chains[chainNo].chain_len; l++)
-                    {
-                        segmentPoints[segmentNos].push_back(chains[chainNo].pixels[l]);
-                        noSegmentPixels++;
-                    } // end-for
-
-                    chains[chainNo].chain_len = 0; // Mark as copied
-                } // end-for
-            } // end-if
-
-            // See if the first pixel can be cleaned up
-            int fr = segmentPoints[segmentNos][1].y;
-            int fc = segmentPoints[segmentNos][1].x;
-
-            int dr = abs(fr - segmentPoints[segmentNos][noSegmentPixels - 1].y);
-            int dc = abs(fc - segmentPoints[segmentNos][noSegmentPixels - 1].x);
-
-            if (dr <= 1 && dc <= 1)
-            {
-                segmentPoints[segmentNos].erase(segmentPoints[segmentNos].begin());
-                noSegmentPixels--;
-            } // end-if
-
-            segmentNos++;
-            segmentPoints.push_back(vector<Point>()); // create empty vector of points for segments
-
-            // Copy the rest of the long chains here
-            for (int k = 2; k < noChains; k++)
-            {
-                if (chains[k].chain_len < 2)
+                if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
                     continue;
 
-                totalLen = LongestChain(chains, k);
-
-                if (totalLen >= 10)
-                {
-
-                    // Retrieve the chainNos
-                    int count = RetrieveChainNos(chains, k, chainNos);
-
-                    // Copy the pixels
-                    noSegmentPixels = 0;
-                    for (int k = 0; k < count; k++)
-                    {
-                        int chainNo = chainNos[k];
-
-#if 1
-                        /* See if we can erase some pixels from the last chain. This is for cleanup */
-                        int fr = chains[chainNo].pixels[0].y;
-                        int fc = chains[chainNo].pixels[0].x;
-
-                        int index = noSegmentPixels - 2;
-                        while (index >= 0)
-                        {
-                            int dr = abs(fr - segmentPoints[segmentNos][index].y);
-                            int dc = abs(fc - segmentPoints[segmentNos][index].x);
-
-                            if (dr <= 1 && dc <= 1)
-                            {
-                                // neighbors. Erase last pixel
-                                segmentPoints[segmentNos].pop_back();
-                                noSegmentPixels--;
-                                index--;
-                            }
-                            else
-                                break;
-                        } // end-while
-
-                        int startIndex = 0;
-                        int chainLen = chains[chainNo].chain_len;
-                        if (chainLen > 1 && noSegmentPixels > 0)
-                        {
-                            int fr = chains[chainNo].pixels[1].y;
-                            int fc = chains[chainNo].pixels[1].x;
-
-                            int dr = abs(fr - segmentPoints[segmentNos][noSegmentPixels - 1].y);
-                            int dc = abs(fc - segmentPoints[segmentNos][noSegmentPixels - 1].x);
-
-                            if (dr <= 1 && dc <= 1)
-                            {
-                                startIndex = 1;
-                            }
-                        } // end-if
-#endif
-                        /* Start a new chain & copy pixels from the new chain */
-                        for (int l = startIndex; l < chains[chainNo].chain_len; l++)
-                        {
-                            segmentPoints[segmentNos].push_back(chains[chainNo].pixels[l]);
-                            noSegmentPixels++;
-                        } // end-for
-
-                        chains[chainNo].chain_len = 0; // Mark as copied
-                    } // end-for
-                    segmentPoints.push_back(vector<Point>()); // create empty vector of points for segments
-                    segmentNos++;
-                } // end-if
+                int grad = gradImgPointer[i * image_width + j];
+                CounterTable[grad]++;
             } // end-for
+        } // end-for
 
+        // Compute indices
+        // C[i] will contain the number of elements having gradient value <= i
+        for (int i = 1; i < SIZE; i++)
+            CounterTable[i] += CounterTable[i - 1];
+
+        int noAnchors = CounterTable[SIZE - 1];
+        int *A = new int[noAnchors];
+        memset(A, 0, sizeof(int) * noAnchors);
+
+        for (int i = 1; i < image_height - 1; i++)
+        {
+            for (int j = 1; j < image_width - 1; j++)
+            {
+
+                if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                    continue;
+
+                int grad = gradImgPointer[i * image_width + j];
+                int index = --CounterTable[grad];
+                A[index] = i * image_width + j; // anchor's offset
+            } // end-for
+        } // end-for
+
+        delete[] CounterTable;
+        return A;
+    }
+
+    int ED::LongestChain(Chain * chains, int root)
+    {
+        if (root == -1 || chains[root].chain_len == 0)
+            return 0;
+
+        int len0 = 0;
+        if (chains[root].children[0] != -1)
+            len0 = LongestChain(chains, chains[root].children[0]);
+
+        int len1 = 0;
+        if (chains[root].children[1] != -1)
+            len1 = LongestChain(chains, chains[root].children[1]);
+
+        int max = 0;
+
+        if (len0 >= len1)
+        {
+            max = len0;
+            chains[root].children[1] = -1;
+        }
+        else
+        {
+            max = len1;
+            chains[root].children[0] = -1;
         } // end-else
 
-    } // end-for-outer
+        return chains[root].chain_len + max;
+    } // end-LongestChain
 
-    // pop back last segment from vector
-    // because of one preallocation in the beginning, it will always empty
-    segmentPoints.pop_back();
-
-    // Clean up
-    delete[] A;
-    delete[] chains;
-    delete[] stack;
-    delete[] chainNos;
-    delete[] pixels;
-}
-
-void ED::sortAnchorsByGradValue()
-{
-    auto sortFunc = [&](const Point &a, const Point &b)
+    int ED::RetrieveChainNos(Chain * chains, int root, int chainNos[])
     {
-        return gradImg[a.y * width + a.x] > gradImg[b.y * width + b.x];
-    };
+        int count = 0;
 
-    std::sort(anchorPoints.begin(), anchorPoints.end(), sortFunc);
-
-    /*
-    ofstream myFile;
-    myFile.open("anchorsNew.txt");
-    for (int i = 0; i < anchorPoints.size(); i++) {
-        int x = anchorPoints[i].x;
-        int y = anchorPoints[i].y;
-
-        myFile << i << ". value: " << gradImg[y*width + x] << "  Cord: (" << x << "," << y << ")" << endl;
-    }
-    myFile.close();
-
-
-    vector<Point> temp(anchorNos);
-
-    int x, y, i = 0;
-    char c;
-    std::ifstream infile("cords.txt");
-    while (infile >> x >> c >> y && c == ',') {
-        temp[i] = Point(x, y);
-        i++;
-    }
-
-    anchorPoints = temp;
-    */
-}
-
-int *ED::sortAnchorsByGradValue1()
-{
-    int SIZE = 128 * 256;
-    int *C = new int[SIZE];
-    memset(C, 0, sizeof(int) * SIZE);
-
-    // Count the number of grad values
-    for (int i = 1; i < height - 1; i++)
-    {
-        for (int j = 1; j < width - 1; j++)
+        while (root != -1)
         {
-            if (edgeImg[i * width + j] != ANCHOR_PIXEL)
-                continue;
+            chainNos[count] = root;
+            count++;
 
-            int grad = gradImg[i * width + j];
-            C[grad]++;
-        } // end-for
-    } // end-for
+            if (chains[root].children[0] != -1)
+                root = chains[root].children[0];
+            else
+                root = chains[root].children[1];
+        } // end-while
 
-    // Compute indices
-    // C[i] will contain the number of elements having gradient value <= i
-    for (int i = 1; i < SIZE; i++)
-        C[i] += C[i - 1];
-
-    int noAnchors = C[SIZE - 1];
-    int *A = new int[noAnchors];
-    memset(A, 0, sizeof(int) * noAnchors);
-
-    for (int i = 1; i < height - 1; i++)
-    {
-        for (int j = 1; j < width - 1; j++)
-        {
-            if (edgeImg[i * width + j] != ANCHOR_PIXEL)
-                continue;
-
-            int grad = gradImg[i * width + j];
-            int index = --C[grad];
-            A[index] = i * width + j; // anchor's offset
-        } // end-for
-    } // end-for
-
-    delete[] C;
-
-    /*
-    ofstream myFile;
-    myFile.open("aNew.txt");
-    for (int i = 0; i < noAnchors; i++)
-        myFile << A[i] << endl;
-
-    myFile.close(); */
-
-    // sorted array of anchor offsets in A[0..noAnchors-1] in increasing order of grad value
-    return A;
-}
-
-int ED::LongestChain(Chain *chains, int root)
-{
-    if (root == -1 || chains[root].chain_len == 0)
-        return 0;
-
-    int len0 = 0;
-    if (chains[root].children[0] != -1)
-        len0 = LongestChain(chains, chains[root].children[0]);
-
-    int len1 = 0;
-    if (chains[root].children[1] != -1)
-        len1 = LongestChain(chains, chains[root].children[1]);
-
-    int max = 0;
-
-    if (len0 >= len1)
-    {
-        max = len0;
-        chains[root].children[1] = -1;
+        return count;
     }
-    else
-    {
-        max = len1;
-        chains[root].children[0] = -1;
-    } // end-else
-
-    return chains[root].chain_len + max;
-} // end-LongestChain
-
-int ED::RetrieveChainNos(Chain *chains, int root, int chainNos[])
-{
-    int count = 0;
-
-    while (root != -1)
-    {
-        chainNos[count] = root;
-        count++;
-
-        if (chains[root].children[0] != -1)
-            root = chains[root].children[0];
-        else
-            root = chains[root].children[1];
-    } // end-while
-
-    return count;
-}

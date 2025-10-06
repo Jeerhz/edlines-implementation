@@ -19,7 +19,7 @@ EDLines::EDLines(Mat srcImage, double _line_error, int _min_line_len, double _ma
         min_line_len = 9;
 
     // Temporary buffers used during line fitting
-    size_t buffer_size = (width + height) * 8;
+    size_t buffer_size = (image_width + image_height) * 8;
     for (int segmentNumber = 0; segmentNumber < segmentPoints.size(); segmentNumber++)
     {
         auto segment_size = segmentPoints[segmentNumber].size();
@@ -52,9 +52,9 @@ EDLines::EDLines(Mat srcImage, double _line_error, int _min_line_len, double _ma
     double prob = 0.125;
 #undef PRECISON_ANGLE
 
-    double logNT = 2.0 * (log10((double)width) + log10((double)height));
+    double logNT = 2.0 * (log10((double)image_width) + log10((double)image_height));
 
-    int lutSize = (width + height) / 8;
+    int lutSize = (image_width + image_height) / 8;
     nfa = new NFALUT(lutSize, prob, logNT); // create look up table
 
     ValidateLineSegments();
@@ -93,7 +93,7 @@ EDLines::EDLines(ED obj, double _line_error, int _min_line_len, double _max_dist
         min_line_len = 9;
 
     // Temporary buffers used during line fitting
-    size_t buffer_size = (width + height) * 8;
+    size_t buffer_size = (image_width + image_height) * 8;
     for (int segmentNumber = 0; segmentNumber < segmentPoints.size(); segmentNumber++)
     {
         auto segment_size = segmentPoints[segmentNumber].size();
@@ -126,9 +126,9 @@ EDLines::EDLines(ED obj, double _line_error, int _min_line_len, double _max_dist
     double prob = 0.125;
 #undef PRECISON_ANGLE
 
-    double logNT = 2.0 * (log10((double)width) + log10((double)height));
+    double logNT = 2.0 * (log10((double)image_width) + log10((double)image_height));
 
-    int lutSize = (width + height) / 8;
+    int lutSize = (image_width + image_height) / 8;
     nfa = new NFALUT(lutSize, prob, logNT); // create look up table
 
     ValidateLineSegments();
@@ -169,7 +169,7 @@ int EDLines::getLinesNo()
 
 Mat EDLines::getLineImage()
 {
-    Mat lineImage = Mat(height, width, CV_8UC1, Scalar(255));
+    Mat lineImage = Mat(image_height, image_width, CV_8UC1, Scalar(255));
     for (int i = 0; i < linesNo; i++)
     {
         line(lineImage, linePoints[i].start, linePoints[i].end, Scalar(0), 1, LINE_AA, 0);
@@ -180,7 +180,7 @@ Mat EDLines::getLineImage()
 
 Mat EDLines::drawOnImage()
 {
-    Mat colorImage = Mat(height, width, CV_8UC1, srcImg);
+    Mat colorImage = Mat(image_height, image_width, CV_8UC1, srcImgPointer);
     cvtColor(colorImage, colorImage, COLOR_GRAY2BGR);
     for (int i = 0; i < linesNo; i++)
     {
@@ -200,7 +200,7 @@ int EDLines::ComputeMinLineLength()
     // there are "2*l" many pixels. Thus, a line segment of length "l" has a chance of getting
     // validated by NFA.
 
-    double logNT = 2.0 * (log10((double)width) + log10((double)height));
+    double logNT = 2.0 * (log10((double)image_width) + log10((double)image_height));
     return (int)round((-logNT / log10(0.125)) * 0.5);
 } // end-ComputeMinLineLength
 
@@ -372,8 +372,8 @@ void EDLines::JoinCollinearLines()
 void EDLines::ValidateLineSegments()
 {
 
-    int *x = new int[(width + height) * 4];
-    int *y = new int[(width + height) * 4];
+    int *x = new int[(image_width + image_height) * 4];
+    int *y = new int[(image_width + image_height) * 4];
 
     int noValidLines = 0;
     int eraseOffset = 0;
@@ -426,7 +426,7 @@ void EDLines::ValidateLineSegments()
                 int r = pixels[j].x;
                 int c = pixels[j].y;
 
-                if (r <= 0 || r >= height - 1 || c <= 0 || c >= width - 1)
+                if (r <= 0 || r >= image_height - 1 || c <= 0 || c >= image_width - 1)
                     continue;
 
                 count++;
@@ -446,11 +446,11 @@ void EDLines::ValidateLineSegments()
                 // Then: gx = com1 + com2 + (E-D) = (H-A) + (C-F) + (E-D) = (C-A) + (E-D) + (H-F)
                 //       gy = com2 - com1 + (G-B) = (H-A) - (C-F) + (G-B) = (F-A) + (G-B) + (H-C)
                 //
-                int com1 = srcImg[(r + 1) * width + c + 1] - srcImg[(r - 1) * width + c - 1];
-                int com2 = srcImg[(r - 1) * width + c + 1] - srcImg[(r + 1) * width + c - 1];
+                int com1 = srcImgPointer[(r + 1) * image_width + c + 1] - srcImgPointer[(r - 1) * image_width + c - 1];
+                int com2 = srcImgPointer[(r - 1) * image_width + c + 1] - srcImgPointer[(r + 1) * image_width + c - 1];
 
-                int gx = com1 + com2 + srcImg[r * width + c + 1] - srcImg[r * width + c - 1];
-                int gy = com1 - com2 + srcImg[(r + 1) * width + c] - srcImg[(r - 1) * width + c];
+                int gx = com1 + com2 + srcImgPointer[r * image_width + c + 1] - srcImgPointer[r * image_width + c - 1];
+                int gy = com1 - com2 + srcImgPointer[(r + 1) * image_width + c] - srcImgPointer[(r - 1) * image_width + c];
 
                 double pixelAngle = nfa->myAtan2((double)gx, (double)-gy);
                 double diff = fabs(lineAngle - pixelAngle);
@@ -516,7 +516,7 @@ bool EDLines::ValidateLineSegmentRect(int *x, int *y, LineSegment *ls)
         int r = y[i];
         int c = x[i];
 
-        if (r <= 0 || r >= height - 1 || c <= 0 || c >= width - 1)
+        if (r <= 0 || r >= image_height - 1 || c <= 0 || c >= image_width - 1)
             continue;
 
         count++;
@@ -536,11 +536,11 @@ bool EDLines::ValidateLineSegmentRect(int *x, int *y, LineSegment *ls)
         // Then: gx = com1 + com2 + (E-D) = (H-A) + (C-F) + (E-D) = (C-A) + (E-D) + (H-F)
         //       gy = com2 - com1 + (G-B) = (H-A) - (C-F) + (G-B) = (F-A) + (G-B) + (H-C)
         //
-        int com1 = srcImg[(r + 1) * width + c + 1] - srcImg[(r - 1) * width + c - 1];
-        int com2 = srcImg[(r - 1) * width + c + 1] - srcImg[(r + 1) * width + c - 1];
+        int com1 = srcImgPointer[(r + 1) * image_width + c + 1] - srcImgPointer[(r - 1) * image_width + c - 1];
+        int com2 = srcImgPointer[(r - 1) * image_width + c + 1] - srcImgPointer[(r + 1) * image_width + c - 1];
 
-        int gx = com1 + com2 + srcImg[r * width + c + 1] - srcImg[r * width + c - 1];
-        int gy = com1 - com2 + srcImg[(r + 1) * width + c] - srcImg[(r - 1) * width + c];
+        int gx = com1 + com2 + srcImgPointer[r * image_width + c + 1] - srcImgPointer[r * image_width + c - 1];
+        int gy = com1 - com2 + srcImgPointer[(r + 1) * image_width + c] - srcImgPointer[(r - 1) * image_width + c];
         double pixelAngle = nfa->myAtan2((double)gx, (double)-gy);
 
         double diff = fabs(lineAngle - pixelAngle);
