@@ -42,9 +42,9 @@ enum GradientOperator
 
 struct StackNode
 {
-    int r, c;           // starting pixel (row, column)
-    int chain_parent;   // parent chain (-1 if no parent)
-    int node_direction; // direction where you are supposed to go
+    int r, c;               // starting pixel (row, column)
+    int chain_parent_index; // parent chain (-1 if no parent)
+    int node_direction;     // direction where you are supposed to go
 };
 
 // Used during Edge Linking

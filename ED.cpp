@@ -364,24 +364,24 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             stack[++top].r = i;
             stack[top].c = j;
             stack[top].node_direction = ED_DOWN;
-            stack[top].chain_parent = 0;
+            stack[top].chain_parent_index = 0;
 
             stack[++top].r = i;
             stack[top].c = j;
             stack[top].node_direction = ED_UP;
-            stack[top].chain_parent = 0;
+            stack[top].chain_parent_index = 0;
         }
         else
         {
             stack[++top].r = i;
             stack[top].c = j;
             stack[top].node_direction = ED_RIGHT;
-            stack[top].chain_parent = 0;
+            stack[top].chain_parent_index = 0;
 
             stack[++top].r = i;
             stack[top].c = j;
             stack[top].node_direction = ED_LEFT;
-            stack[top].chain_parent = 0;
+            stack[top].chain_parent_index = 0;
         } // end-else
 
         // While the stack is not empty
@@ -391,7 +391,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             int r = stack[top].r;
             int c = stack[top].c;
             int dir = stack[top].node_direction;
-            int parent = stack[top].chain_parent;
+            int parent = stack[top].chain_parent_index;
             top--;
 
             if (edgeImgPointer[r * image_width + c] != EDGE_PIXEL)
@@ -482,12 +482,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_DOWN;
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_UP;
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 len--;
                 chainLen--;
@@ -568,12 +568,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_DOWN; // Go down
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_UP; // Go up
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 len--;
                 chainLen--;
@@ -654,12 +654,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_RIGHT;
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_LEFT;
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 len--;
                 chainLen--;
@@ -740,12 +740,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_RIGHT;
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_LEFT;
-                stack[top].chain_parent = noChains;
+                stack[top].chain_parent_index = noChains;
 
                 len--;
                 chainLen--;

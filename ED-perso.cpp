@@ -283,101 +283,105 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             //     duplicatePixelCount++;
 
             chain.add_node(currentNode);
+            // update edge image to mark this pixel as processed
+            edgeImgPointer[currentNode.get_offset(image_width, image_height)] = EDGE_PIXEL;
 
-            int parent = currentNode.chain_parent;
+            int parent = currentNode.chain_parent_index;
 
             addChildrenToStack(currentNode, process_stack);
         }
+    }
+}
 
-        int *ED::sortAnchorsByGradValue()
+int *ED::sortAnchorsByGradValue()
+{
+    int SIZE = 128 * 256;
+    int *CounterTable = new int[SIZE];
+    memset(CounterTable, 0, sizeof(int) * SIZE);
+
+    // Count the number of grad values
+    for (int i = 1; i < image_height - 1; i++)
+    {
+        for (int j = 1; j < image_width - 1; j++)
         {
-            int SIZE = 128 * 256;
-            int *CounterTable = new int[SIZE];
-            memset(CounterTable, 0, sizeof(int) * SIZE);
+            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                continue;
 
-            // Count the number of grad values
-            for (int i = 1; i < image_height - 1; i++)
-            {
-                for (int j = 1; j < image_width - 1; j++)
-                {
-                    if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
-                        continue;
+            int grad = gradImgPointer[i * image_width + j];
+            CounterTable[grad]++;
+        } // end-for
+    } // end-for
 
-                    int grad = gradImgPointer[i * image_width + j];
-                    CounterTable[grad]++;
-                } // end-for
-            } // end-for
+    // Compute indices
+    // C[i] will contain the number of elements having gradient value <= i
+    for (int i = 1; i < SIZE; i++)
+        CounterTable[i] += CounterTable[i - 1];
 
-            // Compute indices
-            // C[i] will contain the number of elements having gradient value <= i
-            for (int i = 1; i < SIZE; i++)
-                CounterTable[i] += CounterTable[i - 1];
+    int noAnchors = CounterTable[SIZE - 1];
+    int *A = new int[noAnchors];
+    memset(A, 0, sizeof(int) * noAnchors);
 
-            int noAnchors = CounterTable[SIZE - 1];
-            int *A = new int[noAnchors];
-            memset(A, 0, sizeof(int) * noAnchors);
-
-            for (int i = 1; i < image_height - 1; i++)
-            {
-                for (int j = 1; j < image_width - 1; j++)
-                {
-
-                    if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
-                        continue;
-
-                    int grad = gradImgPointer[i * image_width + j];
-                    int index = --CounterTable[grad];
-                    A[index] = i * image_width + j; // anchor's offset
-                } // end-for
-            } // end-for
-
-            delete[] CounterTable;
-            return A;
-        }
-
-        int ED::LongestChain(Chain * chains, int root)
+    for (int i = 1; i < image_height - 1; i++)
+    {
+        for (int j = 1; j < image_width - 1; j++)
         {
-            if (root == -1 || chains[root].chain_len == 0)
-                return 0;
 
-            int len0 = 0;
-            if (chains[root].children[0] != -1)
-                len0 = LongestChain(chains, chains[root].children[0]);
+            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                continue;
 
-            int len1 = 0;
-            if (chains[root].children[1] != -1)
-                len1 = LongestChain(chains, chains[root].children[1]);
+            int grad = gradImgPointer[i * image_width + j];
+            int index = --CounterTable[grad];
+            A[index] = i * image_width + j; // anchor's offset
+        } // end-for
+    } // end-for
 
-            int max = 0;
+    delete[] CounterTable;
+    return A;
+}
 
-            if (len0 >= len1)
-            {
-                max = len0;
-                chains[root].children[1] = -1;
-            }
-            else
-            {
-                max = len1;
-                chains[root].children[0] = -1;
-            } // end-else
+int ED::LongestChain(Chain *chains, int root)
+{
+    if (root == -1 || chains[root].chain_len == 0)
+        return 0;
 
-            return chains[root].chain_len + max;
-        } // end-LongestChain
+    int len0 = 0;
+    if (chains[root].children[0] != -1)
+        len0 = LongestChain(chains, chains[root].children[0]);
 
-        int ED::RetrieveChainNos(Chain * chains, int root, int chainNos[])
-        {
-            int count = 0;
+    int len1 = 0;
+    if (chains[root].children[1] != -1)
+        len1 = LongestChain(chains, chains[root].children[1]);
 
-            while (root != -1)
-            {
-                chainNos[count] = root;
-                count++;
+    int max = 0;
 
-                if (chains[root].children[0] != -1)
-                    root = chains[root].children[0];
-                else
-                    root = chains[root].children[1];
-            } // end-while
+    if (len0 >= len1)
+    {
+        max = len0;
+        chains[root].children[1] = -1;
+    }
+    else
+    {
+        max = len1;
+        chains[root].children[0] = -1;
+    } // end-else
 
-            return count;
-        }
+    return chains[root].chain_len + max;
+} // end-LongestChain
+
+int ED::RetrieveChainNos(Chain *chains, int root, int chainNos[])
+{
+    int count = 0;
+
+    while (root != -1)
+    {
+        chainNos[count] = root;
+        count++;
+
+        if (chains[root].children[0] != -1)
+            root = chains[root].children[0];
+        else
+            root = chains[root].children[1];
+    } // end-while
+
+    return count;
+}
