@@ -311,10 +311,10 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             }
 
             // Post processing step
-            for
-                chain in chain : if (chain.chain_len < minPathLen)
-                                     chain.chain_len = 0; // invalidate short chains
-            revert edgeImgPointer pixels to 0
+            // for
+            //     chain in chain : if (chain.chain_len < minPathLen)
+            //                          chain.chain_len = 0; // invalidate short chains
+            // revert edgeImgPointer pixels to 0
         }
     }
 }
