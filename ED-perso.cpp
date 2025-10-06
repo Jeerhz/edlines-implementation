@@ -289,6 +289,32 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             int parent = currentNode.chain_parent_index;
 
             addChildrenToStack(currentNode, process_stack);
+
+            switch (currentNode.node_direction)
+            {
+            case LEFT:
+                chain.setChainDir(LEFT);
+                explore_chain(exploration_direction = LEFT, parent);
+                break;
+            case RIGHT:
+                chain.setChainDir(RIGHT);
+                explore_chain(exploration_direction = RIGHT, parent);
+                break;
+            case UP:
+                chain.setChainDir(UP);
+                explore_chain(exploration_direction = UP, parent);
+                break;
+            case DOWN:
+                chain.setChainDir(DOWN);
+                explore_chain(exploration_direction = DOWN, parent);
+                break;
+            }
+
+            // Post processing step
+            for
+                chain in chain : if (chain.chain_len < minPathLen)
+                                     chain.chain_len = 0; // invalidate short chains
+            revert edgeImgPointer pixels to 0
         }
     }
 }
