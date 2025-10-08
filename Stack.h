@@ -26,6 +26,7 @@ public:
     Direction node_direction; // direction where you are supposed to go i.e LEFT, RIGHT, UP, DOWN
 
     StackNode(int row = 0, int column = 0, int parent = -1, Direction direction = LEFT);
+    StackNode(const cv::Point &p, int parent = -1);
 
     int get_offset(int image_width, int image_height)
     {

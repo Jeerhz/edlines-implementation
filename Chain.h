@@ -10,7 +10,7 @@ public:
     Chain();
 
     int getChainDir();
-    void setChainDir();
+    void setChainDir(Direction dir);
 
     int getChainLen(int chain_index);
 

@@ -81,6 +81,7 @@ private:
     void ComputeAnchorPoints();
     void InitializeChains();
     void JoinAnchorPointsUsingSortedAnchors();
+    void exploreChain(StackNode &current_node, int chain_parent_index);
     /**
      * @brief Sorts anchor pixels by their gradient values in increasing order.
      * @return int* Pointer to a dynamically allocated array A containing the offsets of anchor pixels,

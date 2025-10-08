@@ -57,7 +57,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     JoinAnchorPointsUsingSortedAnchors();
 
     delete[] dirImgPointer;
-    delete[] process_stack;
+    // No need to delete process_stack since it's a std::vector and will be automatically cleaned up.
 }
 
 // This constructor for use of EDLines and EDCircle with ED given as constructor argument
@@ -290,29 +290,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             // update edge image to mark this pixel as processed
             edgeImgPointer[currentNode.get_offset(image_width, image_height)] = EDGE_PIXEL;
 
-            int parent = currentNode.chain_parent_index;
+            int chain_parent_index = currentNode.chain_parent_index;
+            // addChildrenToStack(currentNode, process_stack);
+            process_stack.push_back(currentNode);
 
-            addChildrenToStack(currentNode, process_stack);
-
-            switch (currentNode.node_direction)
-            {
-            case LEFT:
-                chain.setChainDir(LEFT);
-                explore_chain(exploration_direction = LEFT, parent);
-                break;
-            case RIGHT:
-                chain.setChainDir(RIGHT);
-                explore_chain(exploration_direction = RIGHT, parent);
-                break;
-            case UP:
-                chain.setChainDir(UP);
-                explore_chain(exploration_direction = UP, parent);
-                break;
-            case DOWN:
-                chain.setChainDir(DOWN);
-                explore_chain(exploration_direction = DOWN, parent);
-                break;
-            }
+            chain.setChainDir(currentNode.node_direction);
+            exploreChain(currentNode, chain_parent_index);
 
             // Post processing step
             // for
@@ -320,6 +303,63 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             //                          chain.chain_len = 0; // invalidate short chains
             // revert edgeImgPointer pixels to 0
         }
+    }
+}
+
+void ED::exploreChain(StackNode &current_node, int chain_parent_index)
+{
+    switch (current_node.node_direction)
+    {
+    case LEFT:
+        while (dirImgPointer[current_node.get_offset(image_width, image_height)] == EDGE_HORIZONTAL)
+        {
+            edgeImgPointer[current_node.get_offset(image_width, image_height)] = EDGE_PIXEL;
+
+            // The edge is horizontal. Look LEFT
+            //
+            //   A
+            //   B x
+            //   C
+            //
+            // cleanup up & down pixels
+            if (edgeImgPointer[(r - 1) * image_width + c] == ANCHOR_PIXEL)
+                edgeImgPointer[(r - 1) * image_width + c] = 0;
+            if (edgeImgPointer[(r + 1) * image_width + c] == ANCHOR_PIXEL)
+                edgeImgPointer[(r + 1) * image_width + c] = 0;
+
+            // Look if there is an edge pixel in the neighbors
+            // If there is an edge pixel in the neighbors, move to that pixel and continue following the edge.
+            if (edgeImgPointer[r * image_width + c - 1] >= ANCHOR_PIXEL)
+            {
+                c--;
+            }
+            else if (edgeImgPointer[(r - 1) * image_width + c - 1] >= ANCHOR_PIXEL)
+            {
+                r--;
+                c--;
+            }
+            else if (edgeImgPointer[(r + 1) * image_width + c - 1] >= ANCHOR_PIXEL)
+            {
+                r++;
+                c--;
+            }
+            else
+                break;
+
+            chainLen++;
+            chain.add_node(StackNode(r, c, chain_parent_index, LEFT));
+        } // end-while
+
+        break;
+    case RIGHT:
+
+        break;
+    case UP:
+
+        break;
+    case DOWN:
+
+        break;
     }
 }
 
