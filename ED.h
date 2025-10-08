@@ -111,8 +111,8 @@ private:
     cv::Mat edgeImage;
     cv::Mat gradImage;
 
-    uchar *dirImgPointer;  // pointer to direction image data
-    short *gradImgPointer; // pointer to gradient image data
+    uchar *gradOrientationImgPointer; // pointer to direction image data
+    short *gradImgPointer;            // pointer to gradient image data
 
     int gradThresh;   // gradient threshold
     int anchorThresh; // anchor point threshold,

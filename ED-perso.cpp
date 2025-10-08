@@ -45,7 +45,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
 
-    dirImgPointer = new unsigned char[image_width * image_height];
+    gradOrientationImgPointer = new GradOrientation[image_width * image_height];
 
     /*------------ COMPUTE GRADIENT & EDGE DIRECTION MAPS -------------------*/
     ComputeGradient();
@@ -56,7 +56,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     /*------------ JOIN ANCHORS -------------------*/
     JoinAnchorPointsUsingSortedAnchors();
 
-    delete[] dirImgPointer;
+    delete[] gradOrientationImgPointer;
     // No need to delete process_stack since it's a std::vector and will be automatically cleaned up.
 }
 
@@ -207,9 +207,9 @@ void ED::ComputeGradient()
             if (sum >= gradThresh)
             {
                 if (gx >= gy)
-                    dirImgPointer[index] = EDGE_VERTICAL; // it means that the border is in the vertical direction, so the edge is vertical
+                    gradOrientationImgPointer[index] = EDGE_VERTICAL; // it means that the border is in the vertical direction, so the edge is vertical
                 else
-                    dirImgPointer[index] = EDGE_HORIZONTAL;
+                    gradOrientationImgPointer[index] = EDGE_HORIZONTAL;
             } // end-if
         } // end-for
     } // end-for
@@ -232,7 +232,7 @@ void ED::ComputeAnchorPoints()
             if (gradImgPointer[i * image_width + j] < gradThresh)
                 continue;
 
-            if (dirImgPointer[i * image_width + j] == EDGE_VERTICAL)
+            if (gradOrientationImgPointer[i * image_width + j] == EDGE_VERTICAL)
             {
                 // vertical edge
                 int diff1 = gradImgPointer[i * image_width + j] - gradImgPointer[i * image_width + j - 1];
@@ -306,62 +306,104 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
     }
 }
 
+void ED::cleanUpSurroundingEdgePixels(StackNode &current_node)
+{
+
+    if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
+    {
+        // cleanup up & down pixels
+        if (edgeImgPointer[(current_node.node_row - 1) * image_width + current_node.node_column] == ANCHOR_PIXEL)
+            edgeImgPointer[(current_node.node_row - 1) * image_width + current_node.node_column] = 0;
+        if (edgeImgPointer[(current_node.node_row + 1) * image_width + current_node.node_column] == ANCHOR_PIXEL)
+            edgeImgPointer[(current_node.node_row + 1) * image_width + current_node.node_column] = 0;
+    }
+    else
+    {
+        // cleanup left & right pixels
+        if (edgeImgPointer[current_node.node_row * image_width + current_node.node_column - 1] == ANCHOR_PIXEL)
+            edgeImgPointer[current_node.node_row * image_width + current_node.node_column - 1] = 0;
+        if (edgeImgPointer[current_node.node_row * image_width + current_node.node_column + 1] == ANCHOR_PIXEL)
+            edgeImgPointer[current_node.node_row * image_width + current_node.node_column + 1] = 0;
+    }
+}
+
+StackNode ED::GetNextNode(StackNode &current_node, int chain_parent_index)
+{
+    // Look if there is an edge pixel in the neighbors
+    // If there is an edge pixel in the neighbors, move to that pixel and continue following the edge.
+    int r = current_node.node_row;
+    int c = current_node.node_column;
+
+    if (edgeImgPointer[r * image_width + c - 1] >= ANCHOR_PIXEL)
+    {
+        return StackNode(r, c - 1, chain_parent_index, LEFT);
+    }
+    else if (edgeImgPointer[(r - 1) * image_width + c - 1] >= ANCHOR_PIXEL)
+    {
+        return StackNode(r - 1, c - 1, chain_parent_index, LEFT);
+    }
+    else if (edgeImgPointer[(r + 1) * image_width + c - 1] >= ANCHOR_PIXEL)
+    {
+        return StackNode(r + 1, c - 1, chain_parent_index, LEFT);
+    }
+    else
+    {
+        int A = gradImgPointer[(r - 1) * image_width + c - 1];
+        int B = gradImgPointer[r * image_width + c - 1];
+        int C = gradImgPointer[(r + 1) * image_width + c - 1];
+
+        if (A > B)
+        {
+            if (A > C)
+                r--;
+            else
+                r++;
+        }
+        else if (C > B)
+            r++;
+        c--;
+
+        return StackNode(r, c, chain_parent_index, LEFT);
+    }
+}
+
 void ED::exploreChain(StackNode &current_node, int chain_parent_index)
 {
-    switch (current_node.node_direction)
+    StackNode new_node;
+
+    if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
     {
-    case LEFT:
-        while (dirImgPointer[current_node.get_offset(image_width, image_height)] == EDGE_HORIZONTAL)
+        while (gradOrientationImgPointer[current_node.get_offset(image_width, image_height)] == EDGE_HORIZONTAL)
         {
             edgeImgPointer[current_node.get_offset(image_width, image_height)] = EDGE_PIXEL;
 
-            // The edge is horizontal. Look LEFT
-            //
-            //   A
-            //   B x
-            //   C
-            //
-            // cleanup up & down pixels
-            if (edgeImgPointer[(r - 1) * image_width + c] == ANCHOR_PIXEL)
-                edgeImgPointer[(r - 1) * image_width + c] = 0;
-            if (edgeImgPointer[(r + 1) * image_width + c] == ANCHOR_PIXEL)
-                edgeImgPointer[(r + 1) * image_width + c] = 0;
+            cleanUpSurroundingEdgePixels(current_node);
+
+            StackNode next_node = GetNextNode(current_node, chain_parent_index);
 
             // Look if there is an edge pixel in the neighbors
             // If there is an edge pixel in the neighbors, move to that pixel and continue following the edge.
-            if (edgeImgPointer[r * image_width + c - 1] >= ANCHOR_PIXEL)
+            if (edgeImgPointer[current_node.node_row * image_width + current_node.node_column - 1] >= ANCHOR_PIXEL)
             {
-                c--;
+                new_node = StackNode(current_node.node_row, current_node.node_column - 1, chain_parent_index, LEFT);
             }
-            else if (edgeImgPointer[(r - 1) * image_width + c - 1] >= ANCHOR_PIXEL)
+            else if (edgeImgPointer[(current_node.node_row - 1) * image_width + current_node.node_column - 1] >= ANCHOR_PIXEL)
             {
-                r--;
-                c--;
+                new_node = StackNode(current_node.node_row - 1, current_node.node_column - 1, chain_parent_index, LEFT);
             }
-            else if (edgeImgPointer[(r + 1) * image_width + c - 1] >= ANCHOR_PIXEL)
-            {
-                r++;
-                c--;
-            }
-            else
-                break;
-
-            chainLen++;
-            chain.add_node(StackNode(r, c, chain_parent_index, LEFT));
-        } // end-while
-
-        break;
-    case RIGHT:
-
-        break;
-    case UP:
-
-        break;
-    case DOWN:
-
-        break;
+            current_node.node_column--;
+        }
     }
-}
+
+    else if (edgeImgPointer[(current_node.node_row + 1) * image_width + current_node.node_column - 1] >= ANCHOR_PIXEL)
+    {
+        current_node.node_row++;
+        current_node.node_column--;
+    }
+
+    // chainLen++;
+    chain.add_node(StackNode(r, c, chain_parent_index, LEFT));
+} // end-while
 
 int *ED::sortAnchorsByGradValue()
 {

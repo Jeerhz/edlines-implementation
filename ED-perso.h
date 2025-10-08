@@ -99,6 +99,9 @@ private:
     static int LongestChain(Chain *chains, int root); // finds the longest path (chain) starting from a given root node. Each node (chains[root]) has a chain_len (length of the chain at this node) and up to two children (children[0] and children[1]).
     static int RetrieveChainNos(Chain *chains, int root, int chainNos[]);
 
+    void ED::cleanUpSurroundingEdgePixels(StackNode &current_node);
+    StackNode ED::GetNextNode(StackNode &current_node, int chain_parent_index);
+
     int anchorNb;
     std::vector<cv::Point> anchorPoints;
     std::vector<cv::Point> edgePoints;
@@ -106,9 +109,9 @@ private:
     cv::Mat edgeImage;
     cv::Mat gradImage;
 
-    uchar *dirImgPointer;                 // pointer to direction image data. Used only in constructor for computing edges and segments
-    std::vector<StackNode> process_stack; // stack for processing edge pixels during anchor joining
-    short *gradImgPointer;                // pointer to gradient image data
+    GradOrientation *gradOrientationImgPointer; // pointer to direction image data. Used only in constructor for computing edges and segments
+    std::vector<StackNode> process_stack;       // stack for processing edge pixels during anchor joining
+    short *gradImgPointer;                      // pointer to gradient image data
 
     int gradThresh;   // gradient threshold
     int anchorThresh; // anchor point threshold

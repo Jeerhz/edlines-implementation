@@ -49,7 +49,7 @@ ED::ED(Mat _srcImage, GradientOperator _op, int _gradThresh, int _anchorThresh, 
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
 
-    dirImgPointer = new unsigned char[image_width * image_height];
+    gradOrientationImgPointer = new unsigned char[image_width * image_height];
 
     /*------------ COMPUTE GRADIENT & EDGE DIRECTION MAPS -------------------*/
     ComputeGradient();
@@ -60,7 +60,7 @@ ED::ED(Mat _srcImage, GradientOperator _op, int _gradThresh, int _anchorThresh, 
     /*------------ JOIN ANCHORS -------------------*/
     JoinAnchorPointsUsingSortedAnchors();
 
-    delete[] dirImgPointer;
+    delete[] gradOrientationImgPointer;
 }
 
 // This constructor for use of EDLines and EDCircle with ED given as constructor argument
@@ -266,9 +266,9 @@ void ED::ComputeGradient()
             if (sum >= gradThresh)
             {
                 if (gx >= gy)
-                    dirImgPointer[index] = EDGE_VERTICAL;
+                    gradOrientationImgPointer[index] = EDGE_VERTICAL;
                 else
-                    dirImgPointer[index] = EDGE_HORIZONTAL;
+                    gradOrientationImgPointer[index] = EDGE_HORIZONTAL;
             } // end-if
         } // end-for
     } // end-for
@@ -292,7 +292,7 @@ void ED::ComputeAnchorPoints()
             if (gradImgPointer[i * image_width + j] < gradThresh)
                 continue;
 
-            if (dirImgPointer[i * image_width + j] == EDGE_VERTICAL)
+            if (gradOrientationImgPointer[i * image_width + j] == EDGE_VERTICAL)
             {
                 // vertical edge
                 int diff1 = gradImgPointer[i * image_width + j] - gradImgPointer[i * image_width + j - 1];
@@ -359,7 +359,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         int duplicatePixelCount = 0;
         int top = -1; // top of the stack
 
-        if (dirImgPointer[i * image_width + j] == EDGE_VERTICAL)
+        if (gradOrientationImgPointer[i * image_width + j] == EDGE_VERTICAL)
         {
             stack[++top].r = i;
             stack[top].c = j;
@@ -411,7 +411,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
             if (dir == ED_LEFT)
             {
-                while (dirImgPointer[r * image_width + c] == EDGE_HORIZONTAL)
+                while (gradOrientationImgPointer[r * image_width + c] == EDGE_HORIZONTAL)
                 {
                     edgeImgPointer[r * image_width + c] = EDGE_PIXEL;
 
@@ -498,7 +498,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             }
             else if (dir == ED_RIGHT)
             {
-                while (dirImgPointer[r * image_width + c] == EDGE_HORIZONTAL)
+                while (gradOrientationImgPointer[r * image_width + c] == EDGE_HORIZONTAL)
                 {
                     edgeImgPointer[r * image_width + c] = EDGE_PIXEL;
 
@@ -584,7 +584,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             }
             else if (dir == ED_UP)
             {
-                while (dirImgPointer[r * image_width + c] == EDGE_VERTICAL)
+                while (gradOrientationImgPointer[r * image_width + c] == EDGE_VERTICAL)
                 {
                     edgeImgPointer[r * image_width + c] = EDGE_PIXEL;
 
@@ -670,7 +670,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             }
             else
             { // dir == DOWN
-                while (dirImgPointer[r * image_width + c] == EDGE_VERTICAL)
+                while (gradOrientationImgPointer[r * image_width + c] == EDGE_VERTICAL)
                 {
                     edgeImgPointer[r * image_width + c] = EDGE_PIXEL;
 
