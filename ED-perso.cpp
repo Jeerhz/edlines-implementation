@@ -272,9 +272,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         // This is the index of the anchor point in anchorPoints vector
         int anchorPixelOffset = SortedAnchors[k];
         PPoint anchor = getPoint(anchorPixelOffset);
+        // Create a new chain starting from this anchor point. The anchor is not added but used to get direction. TODO: Pass argument only useful one
         chain.addNewChain(anchor);
-
-        GradOrientation anchor_grad_orientation = anchor.grad_dir();
+        GradOrientation anchor_grad_orientation = anchor.grad_dir;
         StackNode startNode = StackNode(anchor);
         process_stack.push_back(startNode);
 
