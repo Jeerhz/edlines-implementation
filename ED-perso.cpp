@@ -24,6 +24,8 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     sumFlag = _sumFlag;
 
     chain = Chain(image_width, image_height);
+    process_stack = std::vector<StackNode>();
+    process_stack.reserve(image_width * image_height);
 
     edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0)); // initialize edge Image
     smoothImage = Mat(image_height, image_width, CV_8UC1);
@@ -55,6 +57,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     JoinAnchorPointsUsingSortedAnchors();
 
     delete[] dirImgPointer;
+    delete[] process_stack;
 }
 
 // This constructor for use of EDLines and EDCircle with ED given as constructor argument
@@ -273,11 +276,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
         GradOrientation anchor_grad_orientation = anchor.grad_dir();
         StackNode startNode = StackNode(anchor);
-        process_stack.push(startNode);
+        process_stack.push_back(startNode);
 
         while (!process_stack.empty())
         {
-            StackNode currentNode = process_stack.pop();
+            StackNode currentNode = process_stack.back();
+            process_stack.pop_back();
 
             // if (edgeImgPointer[currentNode.get_offset(image_width, image_height)] != EDGE_PIXEL)
             //     duplicatePixelCount++;

@@ -9,6 +9,7 @@ enum Direction
     DOWN = 4
 };
 
+// Direction of the gradient either vertical (1) or horizontal (2)
 enum GradOrientation
 {
     EDGE_VERTICAL = 1,
@@ -25,6 +26,11 @@ public:
     Direction node_direction; // direction where you are supposed to go i.e LEFT, RIGHT, UP, DOWN
 
     StackNode(int row = 0, int column = 0, int parent = -1, Direction direction = LEFT);
+
+    int get_offset(int image_width, int image_height)
+    {
+        return node_row * image_width + node_column;
+    }
 };
 
 class ProcessStack
