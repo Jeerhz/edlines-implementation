@@ -1,4 +1,6 @@
 #include "ED-perso.h"
+#include "Chain.h"
+#include "Stack.h"
 #include <fstream>
 
 using namespace cv;
@@ -270,6 +272,61 @@ PPoint ED::getPoint(int offset)
     bool is_edge = (edgeImgPointer[offset] >= ANCHOR_PIXEL);
 
     return PPoint(col, row, dir, is_anchor, is_edge);
+}
+
+int *ED::sortAnchorsByGradValue()
+{
+    int SIZE = 128 * 256;
+    int *C = new int[SIZE];
+    memset(C, 0, sizeof(int) * SIZE);
+
+    // Count the number of grad values
+    for (int i = 1; i < image_height - 1; i++)
+    {
+        for (int j = 1; j < image_width - 1; j++)
+        {
+            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                continue;
+
+            int grad = gradImgPointer[i * image_width + j];
+            C[grad]++;
+        } // end-for
+    } // end-for
+
+    // Compute indices
+    // C[i] will contain the number of elements having gradient value <= i
+    for (int i = 1; i < SIZE; i++)
+        C[i] += C[i - 1];
+
+    int noAnchors = C[SIZE - 1];
+    int *A = new int[noAnchors];
+    memset(A, 0, sizeof(int) * noAnchors);
+
+    for (int i = 1; i < image_height - 1; i++)
+    {
+        for (int j = 1; j < image_width - 1; j++)
+        {
+            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                continue;
+
+            int grad = gradImgPointer[i * image_width + j];
+            int index = --C[grad];
+            A[index] = i * image_width + j; // anchor's offset
+        } // end-for
+    } // end-for
+
+    delete[] C;
+
+    /*
+    ofstream myFile;
+    myFile.open("aNew.txt");
+    for (int i = 0; i < noAnchors; i++)
+        myFile << A[i] << endl;
+
+    myFile.close(); */
+
+    // sorted array of anchor offsets in A[0..noAnchors-1] in increasing order of grad value
+    return A;
 }
 
 void ED::JoinAnchorPointsUsingSortedAnchors()

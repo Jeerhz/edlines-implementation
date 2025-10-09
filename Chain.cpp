@@ -66,12 +66,12 @@ Point *Chain::getPixels()
     return pixels;
 }
 
-void Chain::setPixels(Point *px)
+void Chain::setPixels(PPoint *px)
 {
     pixels = px;
 }
 
-void Chain::addNewChain(Point p)
+void Chain::addNewChain(PPoint p)
 {
     // Start a new chain
     noChains++;

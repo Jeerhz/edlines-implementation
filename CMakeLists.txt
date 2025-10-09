@@ -13,6 +13,10 @@ add_library(EDLib STATIC
         ED-perso.cpp
         ED-perso.h
         PPoint.h
+        PPoint.cpp
+        Chain.cpp
+        Chain.h
+        Stack.cpp
         Stack.h
         NFA.cpp
         NFA.h)
