@@ -100,7 +100,9 @@ private:
     static int RetrieveChainNos(Chain *chains, int root, int chainNos[]);
 
     void ED::cleanUpSurroundingEdgePixels(StackNode &current_node);
-    StackNode ED::GetNextNode(StackNode &current_node, int chain_parent_index);
+    StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index);
+    bool ED::validateNode(StackNode &node);
+    void ED::addNodeToProcessStack(StackNode &node);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;

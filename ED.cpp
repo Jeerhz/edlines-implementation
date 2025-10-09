@@ -479,6 +479,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                     chainLen++;
                 } // end-while
 
+                // After finishing the current horizontal (LEFT) chain, push two new nodes onto the stack to continue tracing:
+                // one going DOWN and one going UP from the current position.
+                // This allows the algorithm to follow possible branches in both vertical directions from the end of the current chain.
                 stack[++top].r = r;
                 stack[top].c = c;
                 stack[top].node_direction = ED_DOWN;
@@ -489,9 +492,13 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 stack[top].node_direction = ED_UP;
                 stack[top].chain_parent_index = noChains;
 
+                // Remove the last pixel from the current chain (since it will be the starting point for the new chains),
+                // and update the chain length accordingly.
                 len--;
                 chainLen--;
 
+                // Finalize the current chain by setting its length and updating the parent's child pointer.
+                // Then increment the chain counter for the next chain.
                 chains[noChains].chain_len = chainLen;
                 chains[parent].children[0] = noChains;
                 noChains++;
