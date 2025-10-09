@@ -329,42 +329,66 @@ void ED::cleanUpSurroundingEdgePixels(StackNode &current_node)
 
 StackNode ED::GetNextNode(StackNode &current_node, int chain_parent_index)
 {
-    // Look if there is an edge pixel in the neighbors
-    // If there is an edge pixel in the neighbors, move to that pixel and continue following the edge.
-    int r = current_node.node_row;
-    int c = current_node.node_column;
+    int current_row = current_node.node_row;
+    int current_col = current_node.node_column;
+    Direction direction = current_node.node_direction;
 
-    if (edgeImgPointer[r * image_width + c - 1] >= ANCHOR_PIXEL)
-    {
-        return StackNode(r, c - 1, chain_parent_index, LEFT);
-    }
-    else if (edgeImgPointer[(r - 1) * image_width + c - 1] >= ANCHOR_PIXEL)
-    {
-        return StackNode(r - 1, c - 1, chain_parent_index, LEFT);
-    }
-    else if (edgeImgPointer[(r + 1) * image_width + c - 1] >= ANCHOR_PIXEL)
-    {
-        return StackNode(r + 1, c - 1, chain_parent_index, LEFT);
-    }
-    else
-    {
-        int A = gradImgPointer[(r - 1) * image_width + c - 1];
-        int B = gradImgPointer[r * image_width + c - 1];
-        int C = gradImgPointer[(r + 1) * image_width + c - 1];
+    // Neighbor offsets for each direction: {row_offset, col_offset}
+    // These arrays define the relative positions of the 3-connected neighbors for each direction.
+    static const int neighbor_row_offsets[4][3] = {
+        {-1, 0, 1},   // LEFT: above-left, left, below-left
+        {-1, 0, 1},   // RIGHT: above-right, right, below-right
+        {-1, -1, -1}, // UP: above-left, above, above-right
+        {1, 1, 1}     // DOWN: below-left, below, below-right
+    };
+    static const int neighbor_col_offsets[4][3] = {
+        {-1, -1, -1}, // LEFT
+        {1, 1, 1},    // RIGHT
+        {-1, 0, 1},   // UP
+        {-1, 0, 1}    // DOWN
+    };
+    // next_dir maps the direction index to the corresponding Direction enum value for the next node.
+    static Direction next_direction_for_neighbor[4] = {LEFT, RIGHT, UP, DOWN};
 
-        if (A > B)
+    // Check for edge pixels in the 3-connected direction
+    for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
+    {
+        int neighbor_row = current_row + neighbor_row_offsets[direction][neighbor_idx];
+        int neighbor_col = current_col + neighbor_col_offsets[direction][neighbor_idx];
+        if (neighbor_row >= 0 && neighbor_row < image_height && neighbor_col >= 0 && neighbor_col < image_width)
         {
-            if (A > C)
-                r--;
-            else
-                r++;
+            if (edgeImgPointer[neighbor_row * image_width + neighbor_col] >= ANCHOR_PIXEL)
+            {
+                return StackNode(neighbor_row, neighbor_col, chain_parent_index, next_direction_for_neighbor[direction]);
+            }
         }
-        else if (C > B)
-            r++;
-        c--;
-
-        return StackNode(r, c, chain_parent_index, LEFT);
     }
+
+    // No edge pixel found, follow the pixel with highest gradient value
+    int max_gradient = -1, max_gradient_neighbor_idx = -1;
+    for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
+    {
+        int neighbor_row = current_row + neighbor_row_offsets[direction][neighbor_idx];
+        int neighbor_col = current_col + neighbor_col_offsets[direction][neighbor_idx];
+        if (neighbor_row >= 0 && neighbor_row < image_height && neighbor_col >= 0 && neighbor_col < image_width)
+        {
+            int gradient = gradImgPointer[neighbor_row * image_width + neighbor_col];
+            if (gradient > max_gradient)
+            {
+                max_gradient = gradient;
+                max_gradient_neighbor_idx = neighbor_idx;
+            }
+        }
+    }
+    if (max_gradient_neighbor_idx != -1)
+    {
+        int neighbor_row = current_row + neighbor_row_offsets[direction][max_gradient_neighbor_idx];
+        int neighbor_col = current_col + neighbor_col_offsets[direction][max_gradient_neighbor_idx];
+        return StackNode(neighbor_row, neighbor_col, chain_parent_index, next_direction_for_neighbor[direction]);
+    }
+
+    // Fallback: return current node (should not happen)
+    return current_node;
 }
 
 void ED::exploreChain(StackNode &current_node, int chain_parent_index)

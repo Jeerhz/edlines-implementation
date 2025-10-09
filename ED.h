@@ -18,8 +18,8 @@
 #include <opencv2/opencv.hpp>
 
 /// Special defines
-#define EDGE_VERTICAL 1
-#define EDGE_HORIZONTAL 2
+#define EDGE_VERTICAL 0
+#define EDGE_HORIZONTAL 1
 
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255

@@ -3,17 +3,17 @@
 
 enum Direction
 {
-    LEFT = 1,
-    RIGHT = 2,
-    UP = 3,
-    DOWN = 4
+    LEFT = 0,
+    RIGHT = 1,
+    UP = 2,
+    DOWN = 3
 };
 
 // Direction of the gradient either vertical (1) or horizontal (2)
 enum GradOrientation
 {
-    EDGE_VERTICAL = 1,
-    EDGE_HORIZONTAL = 2
+    EDGE_VERTICAL = 0,
+    EDGE_HORIZONTAL = 1
 };
 
 class StackNode

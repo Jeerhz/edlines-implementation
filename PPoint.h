@@ -1,12 +1,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
-
-enum class GradOrientation
-{
-    VERTICAL,
-    HORIZONTAL
-};
+#include "Stack.h"
 
 struct PPoint : public cv::Point
 {
