@@ -6,10 +6,13 @@
 struct PPoint : public cv::Point
 {
 
-    PPoint(int x, int y, GradOrientation dir, bool is_anchor = false, bool is_edge = false);
+    PPoint(int _row, int _col, GradOrientation _grad_dir, bool _is_anchor = false, bool _is_edge = false);
 
     bool is_anchor;
     bool is_edge;
+
+    int row;
+    int col;
 
     GradOrientation grad_dir;
 

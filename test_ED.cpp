@@ -38,7 +38,7 @@ int main(int argc, char **argv)
         // Detection of edge segments from an input image
         tm.start();
         // Call ED constructor
-        ED testED = ED(testImg, SOBEL_OPERATOR, 36, 8, 1, 10, 1.0, true);
+        ED testED = ED(testImg, 36, 8, 1, 10, 1.0, true);
         tm.stop();
         std::cout << "testED.getEdgeImage()  (Original)  : " << tm.getTimeMilli() << " ms." << endl;
 

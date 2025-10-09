@@ -15,7 +15,7 @@
 #ifndef _EDLines_
 #define _EDLines_
 
-#include "ED.h"
+#include "ED-perso.h"
 #include "NFA.h"
 
 #define SS 0

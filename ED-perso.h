@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include "Chain.h"
 #include "PPoint.h"
+#include "Stack.h"
 
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
@@ -99,10 +100,10 @@ private:
     static int LongestChain(Chain *chains, int root); // finds the longest path (chain) starting from a given root node. Each node (chains[root]) has a chain_len (length of the chain at this node) and up to two children (children[0] and children[1]).
     static int RetrieveChainNos(Chain *chains, int root, int chainNos[]);
 
-    void ED::cleanUpSurroundingEdgePixels(StackNode &current_node);
-    StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index);
-    bool ED::validateNode(StackNode &node);
-    void ED::addNodeToProcessStack(StackNode &node);
+    void cleanUpSurroundingEdgePixels(StackNode &current_node);
+    StackNode getNextNode(StackNode &current_node, int chain_parent_index);
+    bool validateNode(StackNode &node);
+    void addNodeToProcessStack(StackNode &node);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;

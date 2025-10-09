@@ -260,6 +260,18 @@ void ED::ComputeAnchorPoints()
     anchorNb = (int)anchorPoints.size(); // get the total number of anchor points
 }
 
+PPoint ED::getPoint(int offset)
+{
+    int row = offset / image_width;
+    int col = offset % image_width;
+
+    GradOrientation dir = gradOrientationImgPointer[offset];
+    bool is_anchor = (edgeImgPointer[offset] == ANCHOR_PIXEL);
+    bool is_edge = (edgeImgPointer[offset] >= ANCHOR_PIXEL);
+
+    return PPoint(col, row, dir, is_anchor, is_edge);
+}
+
 void ED::JoinAnchorPointsUsingSortedAnchors()
 {
 
@@ -288,7 +300,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
             chain.add_node(currentNode);
             // update edge image to mark this pixel as processed
-            edgeImgPointer[currentNode.get_offset(image_width, image_height)] = EDGE_PIXEL;
+            edgeImgPointer[currentNode.get_offset(image_width)] = EDGE_PIXEL;
 
             int chain_parent_index = currentNode.chain_parent_index;
             // addChildrenToStack(currentNode, process_stack);
@@ -296,12 +308,6 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
             chain.setChainDir(currentNode.node_direction);
             exploreChain(currentNode, chain_parent_index);
-
-            // Post processing step
-            // for
-            //     chain in chain : if (chain.chain_len < minPathLen)
-            //                          chain.chain_len = 0; // invalidate short chains
-            // revert edgeImgPointer pixels to 0
         }
     }
 }
@@ -394,7 +400,7 @@ StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index)
 
 bool ED::validateNode(StackNode &node)
 {
-    return (edgeImgPointer[node.get_offset(image_width, image_height)] == EDGE_PIXEL || gradImgPointer[node.get_offset(image_width, image_height)] < gradThresh);
+    return (edgeImgPointer[node.get_offset(image_width)] == EDGE_PIXEL || gradImgPointer[node.get_offset(image_width)] < gradThresh);
 }
 
 // TODO (adle): We may need to pass the chain object as argument or to pass other argument to identify current chain
@@ -411,156 +417,95 @@ void ED::exploreChain(StackNode &current_node, int chain_parent_index)
 
     if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
     {
-        while (gradOrientationImgPointer[current_node.get_offset(image_width, image_height)] == EDGE_HORIZONTAL)
+        while (gradOrientationImgPointer[current_node.get_offset(image_width)] == EDGE_HORIZONTAL)
         {
-            edgeImgPointer[current_node.get_offset(image_width, image_height)] = EDGE_PIXEL;
+            edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
 
             cleanUpSurroundingEdgePixels(current_node);
 
             StackNode next_node = getNextNode(current_node, chain_parent_index);
 
             if (validateNode(next_node) == false)
-            { // If we reach a pixel that is already marked as an edge (EDGE_PIXEL)
-                // or the gradient at this pixel falls below the threshold (not a strong edge),
-                // we stop extending the current chain in this direction.
-                // If the current chain has any length, finalize it and link it as a child to its parent chain.
-                // Then, return to the main traversal loop to process the next direction or anchor.
+            {
                 if (current_chain_len > 0)
                     return;
-                // chain.addChildrenChain(chain_parent_index, current_chain_len);
+            }
+            addNodeToProcessStack(next_node);
+            current_node = next_node;
+            current_chain_len++;
+        }
+
+        // After finishing the current horizontal (LEFT or RIGHT) chain,
+        // push two new nodes onto the process_stack to continue tracing:
+        // one going DOWN and one going UP from the current position.
+
+        // Prepare DOWN node
+        if (current_node.node_row + 1 < image_height)
+        {
+            StackNode down_node(current_node.node_row + 1, current_node.node_column, chain_parent_index, DOWN);
+            if (edgeImgPointer[down_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
+                gradImgPointer[down_node.get_offset(image_width)] >= gradThresh)
+            {
+                process_stack.push_back(down_node);
             }
         }
 
-        addNodeToProcessStack(next_node);
-    }
-
-    // After finishing the current horizontal (LEFT or RIGHT) chain,
-    // push two new nodes onto the process_stack to continue tracing:nb
-    // one going DOWN and one going UP from the current position.
-    // This allows the algorithm to follow possible branches in both vertical directions from the end of the current chain.
-
-    // Prepare DOWN node
-    if (current_node.node_row + 1 < image_height)
-    {
-        StackNode down_node(current_node.node_row + 1, current_node.node_column, chain_parent_index, DOWN);
-        if (edgeImgPointer[down_node.get_offset(image_width, image_height)] >= ANCHOR_PIXEL ||
-            gradImgPointer[down_node.get_offset(image_width, image_height)] >= gradThresh)
+        // Prepare UP node
+        if (current_node.node_row - 1 >= 0)
         {
-            process_stack.push_back(down_node);
+            StackNode up_node(current_node.node_row - 1, current_node.node_column, chain_parent_index, UP);
+            if (edgeImgPointer[up_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
+                gradImgPointer[up_node.get_offset(image_width)] >= gradThresh)
+            {
+                process_stack.push_back(up_node);
+            }
         }
-    }
-
-    // Prepare UP node
-    if (current_node.node_row - 1 >= 0)
-    {
-        StackNode up_node(current_node.node_row - 1, current_node.node_column, chain_parent_index, UP);
-        if (edgeImgPointer[up_node.get_offset(image_width, image_height)] >= ANCHOR_PIXEL ||
-            gradImgPointer[up_node.get_offset(image_width, image_height)] >= gradThresh)
-        {
-            process_stack.push_back(up_node);
-        }
-    }
-}
-
-else if (edgeImgPointer[(current_node.node_row + 1) * image_width + current_node.node_column - 1] >= ANCHOR_PIXEL)
-{
-    current_node.node_row++;
-    current_node.node_column--;
-}
-
-// chainLen++;
-chain.add_node(StackNode(r, c, chain_parent_index, LEFT));
-} // end-while
-
-int *ED::sortAnchorsByGradValue()
-{
-    int SIZE = 128 * 256;
-    int *CounterTable = new int[SIZE];
-    memset(CounterTable, 0, sizeof(int) * SIZE);
-
-    // Count the number of grad values
-    for (int i = 1; i < image_height - 1; i++)
-    {
-        for (int j = 1; j < image_width - 1; j++)
-        {
-            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
-                continue;
-
-            int grad = gradImgPointer[i * image_width + j];
-            CounterTable[grad]++;
-        } // end-for
-    } // end-for
-
-    // Compute indices
-    // C[i] will contain the number of elements having gradient value <= i
-    for (int i = 1; i < SIZE; i++)
-        CounterTable[i] += CounterTable[i - 1];
-
-    int noAnchors = CounterTable[SIZE - 1];
-    int *A = new int[noAnchors];
-    memset(A, 0, sizeof(int) * noAnchors);
-
-    for (int i = 1; i < image_height - 1; i++)
-    {
-        for (int j = 1; j < image_width - 1; j++)
-        {
-
-            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
-                continue;
-
-            int grad = gradImgPointer[i * image_width + j];
-            int index = --CounterTable[grad];
-            A[index] = i * image_width + j; // anchor's offset
-        } // end-for
-    } // end-for
-
-    delete[] CounterTable;
-    return A;
-}
-
-int ED::LongestChain(Chain *chains, int root)
-{
-    if (root == -1 || chains[root].chain_len == 0)
-        return 0;
-
-    int len0 = 0;
-    if (chains[root].children[0] != -1)
-        len0 = LongestChain(chains, chains[root].children[0]);
-
-    int len1 = 0;
-    if (chains[root].children[1] != -1)
-        len1 = LongestChain(chains, chains[root].children[1]);
-
-    int max = 0;
-
-    if (len0 >= len1)
-    {
-        max = len0;
-        chains[root].children[1] = -1;
     }
     else
     {
-        max = len1;
-        chains[root].children[0] = -1;
-    } // end-else
+        // Handle UP and DOWN directions (vertical chains)
+        while (gradOrientationImgPointer[current_node.get_offset(image_width)] == EDGE_VERTICAL)
+        {
+            edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
 
-    return chains[root].chain_len + max;
-} // end-LongestChain
+            cleanUpSurroundingEdgePixels(current_node);
 
-int ED::RetrieveChainNos(Chain *chains, int root, int chainNos[])
-{
-    int count = 0;
+            StackNode next_node = getNextNode(current_node, chain_parent_index);
 
-    while (root != -1)
-    {
-        chainNos[count] = root;
-        count++;
+            if (validateNode(next_node) == false)
+            {
+                if (current_chain_len > 0)
+                    return;
+            }
+            addNodeToProcessStack(next_node);
+            current_node = next_node;
+            current_chain_len++;
+        }
 
-        if (chains[root].children[0] != -1)
-            root = chains[root].children[0];
-        else
-            root = chains[root].children[1];
-    } // end-while
+        // After finishing the current vertical (UP or DOWN) chain,
+        // push two new nodes onto the process_stack to continue tracing:
+        // one going LEFT and one going RIGHT from the current position.
 
-    return count;
+        // Prepare LEFT node
+        if (current_node.node_column - 1 >= 0)
+        {
+            StackNode left_node(current_node.node_row, current_node.node_column - 1, chain_parent_index, LEFT);
+            if (edgeImgPointer[left_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
+                gradImgPointer[left_node.get_offset(image_width)] >= gradThresh)
+            {
+                process_stack.push_back(left_node);
+            }
+        }
+
+        // Prepare RIGHT node
+        if (current_node.node_column + 1 < image_width)
+        {
+            StackNode right_node(current_node.node_row, current_node.node_column + 1, chain_parent_index, RIGHT);
+            if (edgeImgPointer[right_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
+                gradImgPointer[right_node.get_offset(image_width)] >= gradThresh)
+            {
+                process_stack.push_back(right_node);
+            }
+        }
+    }
 }

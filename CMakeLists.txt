@@ -7,10 +7,13 @@ find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_library(EDLib STATIC
-        ED.cpp
-        ED.h
         EDLines.cpp
         EDLines.h
+        NFA.cpp
+        ED-perso.cpp
+        ED-perso.h
+        PPoint.h
+        Stack.h
         NFA.cpp
         NFA.h)
 
