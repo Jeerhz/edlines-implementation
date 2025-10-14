@@ -1,7 +1,6 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include "Stack.h"
-#include "PPoint.h"
 
 class Chain
 {
@@ -25,7 +24,7 @@ public:
     void setChild(int child_index, int child_value) { children[child_index] = child_value; }
 
     cv::Point *getPixels();
-    void setPixels(PPoint *p);
+    void setPixels(cv::Point *p);
 
     void addNewChain(PPoint p);
 

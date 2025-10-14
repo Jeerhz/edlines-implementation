@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.11)
+cmake_policy(SET CMP0156 NEW)
+cmake_policy(SET CMP0181 NEW)
+
 project(EDStudy)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_BUILD_TYPE Debug)  # top of CMakeLists.txt
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -12,8 +16,6 @@ add_library(EDLib STATIC
         NFA.cpp
         ED-perso.cpp
         ED-perso.h
-        PPoint.h
-        PPoint.cpp
         Chain.cpp
         Chain.h
         Stack.cpp

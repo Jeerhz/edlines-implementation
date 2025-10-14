@@ -66,7 +66,7 @@ Point *Chain::getPixels()
     return pixels;
 }
 
-void Chain::setPixels(PPoint *px)
+void Chain::setPixels(cv::Point *px)
 {
     pixels = px;
 }
@@ -92,7 +92,9 @@ void Chain::add_node(StackNode node)
     // Add the node's position to the pixels array
     if (pixels != nullptr)
     {
-        pixels[totalPixels] = Point(node.node_column, node.node_row);
+        GradOrientation grad_orientation = (node.node_direction == LEFT || node.node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
+
+        setPixels(&PPoint(node.node_row, node.node_column, node.grad_orientation, node.is_anchor, node.is_edge));
         totalPixels++;
         chain_len++;
     }

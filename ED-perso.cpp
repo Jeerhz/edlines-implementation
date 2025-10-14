@@ -266,12 +266,11 @@ PPoint ED::getPoint(int offset)
 {
     int row = offset / image_width;
     int col = offset % image_width;
-
-    GradOrientation dir = gradOrientationImgPointer[offset];
+    GradOrientation grad_orientation = gradOrientationImgPointer[offset];
     bool is_anchor = (edgeImgPointer[offset] == ANCHOR_PIXEL);
     bool is_edge = (edgeImgPointer[offset] >= ANCHOR_PIXEL);
 
-    return PPoint(col, row, dir, is_anchor, is_edge);
+    return PPoint(col, row, grad_orientation, is_anchor, is_edge);
 }
 
 int *ED::sortAnchorsByGradValue()
@@ -343,9 +342,25 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         PPoint anchor = getPoint(anchorPixelOffset);
         // Create a new chain starting from this anchor point. The anchor is not added but used to get direction. TODO: Pass argument only useful one
         chain.addNewChain(anchor);
-        GradOrientation anchor_grad_orientation = anchor.grad_dir;
-        StackNode startNode = StackNode(anchor);
-        process_stack.push_back(startNode);
+        GradOrientation anchor_grad_orientation = anchor.grad_orientation;
+        if (anchor_grad_orientation == EDGE_VERTICAL)
+        {
+            // Add node in right and left direction
+            process_stack.push_back(StackNode(anchor, LEFT, -1));
+            process_stack.push_back(StackNode(anchor, RIGHT, -1));
+        }
+        else
+        {
+            // Add node in up and down direction
+            process_stack.push_back(StackNode(anchor, UP, -1));
+            process_stack.push_back(StackNode(anchor, DOWN, -1));
+        }
+
+        {
+            // Add node in up and down direction
+            process_stack.push_back(StackNode(anchor, UP, -1));
+            process_stack.push_back(StackNode(anchor, DOWN, -1));
+        }
 
         while (!process_stack.empty())
         {
@@ -396,6 +411,12 @@ StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index)
     int current_col = current_node.node_column;
     Direction current_node_direction = current_node.node_direction;
 
+    // Check if current_node_direction is valid (should be 0,1,2,3 for LEFT, RIGHT, UP, DOWN)
+    if (current_node_direction < 0 || current_node_direction > 3)
+    {
+        throw std::runtime_error("Error: Processing a node with undefined direction in getNextNode.");
+    }
+
     // Neighbor offsets for each direction: {row_offset, col_offset}
     // These arrays define the relative positions of the 3-connected neighbors for each direction.
     static const int neighbor_row_offsets[4][3] = {
@@ -422,7 +443,7 @@ StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index)
         {
             if (edgeImgPointer[neighbor_row * image_width + neighbor_col] >= ANCHOR_PIXEL)
             {
-                return StackNode(neighbor_row, neighbor_col, chain_parent_index, next_direction_for_neighbor[current_node_direction]);
+                return StackNode(neighbor_row, neighbor_col, next_direction_for_neighbor[current_node_direction], chain_parent_index);
             }
         }
     }
@@ -469,7 +490,6 @@ void ED::addNodeToProcessStack(StackNode &node)
 
 void ED::exploreChain(StackNode &current_node, int chain_parent_index)
 {
-    StackNode new_node;
     int current_chain_len = 0;
 
     if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
@@ -546,7 +566,7 @@ void ED::exploreChain(StackNode &current_node, int chain_parent_index)
         // Prepare LEFT node
         if (current_node.node_column - 1 >= 0)
         {
-            StackNode left_node(current_node.node_row, current_node.node_column - 1, chain_parent_index, LEFT);
+            StackNode left_node(current_node.node_row, current_node.node_column - 1, LEFT, chain_parent_index);
             if (edgeImgPointer[left_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
                 gradImgPointer[left_node.get_offset(image_width)] >= gradThresh)
             {
