@@ -94,8 +94,12 @@ void Chain::add_node(StackNode node)
     {
         GradOrientation grad_orientation = (node.node_direction == LEFT || node.node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
 
-        setPixels(&PPoint(node.node_row, node.node_column, node.grad_orientation, node.is_anchor, node.is_edge));
-        totalPixels++;
-        chain_len++;
+        // Store the new point in the pixels array
+        if (totalPixels >= 0)
+        { // Optionally check bounds if needed
+            pixels[totalPixels] = PPoint(node.node_row, node.node_column, node.grad_orientation, node.is_anchor, node.is_edge);
+            totalPixels++;
+            chain_len++;
+        }
     }
 }

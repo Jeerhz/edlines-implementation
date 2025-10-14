@@ -18,15 +18,7 @@ enum GradOrientation
 };
 struct PPoint : public cv::Point
 {
-    PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor = false, bool _is_edge = false)
-        : cv::Point(_col, _row), // cv::Point(x, y) where x=col, y=row
-          is_anchor(_is_anchor),
-          is_edge(_is_edge),
-          row(_row),
-          col(_col),
-          grad_orientation(_grad_orientation)
-    {
-    }
+    PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor = false, bool _is_edge = false);
 
     // Conversion operator to cv::Point
     operator cv::Point() const

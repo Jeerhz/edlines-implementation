@@ -30,12 +30,13 @@ public:
 
     void add_node(StackNode node);
 
+    cv::Point *pixels; // Pointer to the beginning of the pixels array TODO: put it in private
+
 private:
-    int chain_dir;     // Direction of the chain
-    int chain_len;     // # of pixels in the chain
-    int parent;        // Parent of this node (-1 if no parent)
-    int children[2];   // Children of this node (-1 if no children)
-    cv::Point *pixels; // Pointer to the beginning of the pixels array
+    int chain_dir;   // Direction of the chain
+    int chain_len;   // # of pixels in the chain
+    int parent;      // Parent of this node (-1 if no parent)
+    int children[2]; // Children of this node (-1 if no children)
 
     int totalPixels = 0;
     int noChains = 0;

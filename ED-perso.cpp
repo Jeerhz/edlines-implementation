@@ -346,20 +346,14 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         if (anchor_grad_orientation == EDGE_VERTICAL)
         {
             // Add node in right and left direction
-            process_stack.push_back(StackNode(anchor, LEFT, -1));
-            process_stack.push_back(StackNode(anchor, RIGHT, -1));
+            process_stack.push_back(StackNode(anchor, UP, -1));
+            process_stack.push_back(StackNode(anchor, DOWN, -1));
         }
         else
         {
             // Add node in up and down direction
-            process_stack.push_back(StackNode(anchor, UP, -1));
-            process_stack.push_back(StackNode(anchor, DOWN, -1));
-        }
-
-        {
-            // Add node in up and down direction
-            process_stack.push_back(StackNode(anchor, UP, -1));
-            process_stack.push_back(StackNode(anchor, DOWN, -1));
+            process_stack.push_back(StackNode(anchor, LEFT, -1));
+            process_stack.push_back(StackNode(anchor, RIGHT, -1));
         }
 
         while (!process_stack.empty())
@@ -410,6 +404,7 @@ StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index)
     int current_row = current_node.node_row;
     int current_col = current_node.node_column;
     Direction current_node_direction = current_node.node_direction;
+    GradOrientation current_node_grad_orientation = current_node.grad_orientation;
 
     // Check if current_node_direction is valid (should be 0,1,2,3 for LEFT, RIGHT, UP, DOWN)
     if (current_node_direction < 0 || current_node_direction > 3)
@@ -443,7 +438,7 @@ StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index)
         {
             if (edgeImgPointer[neighbor_row * image_width + neighbor_col] >= ANCHOR_PIXEL)
             {
-                return StackNode(neighbor_row, neighbor_col, next_direction_for_neighbor[current_node_direction], chain_parent_index);
+                return StackNode(neighbor_row, neighbor_col, next_direction_for_neighbor[current_node_direction], current_node_grad_orientation, chain_parent_index);
             }
         }
     }
@@ -469,7 +464,7 @@ StackNode ED::getNextNode(StackNode &current_node, int chain_parent_index)
     {
         int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][max_gradient_neighbor_idx];
         int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][max_gradient_neighbor_idx];
-        return StackNode(neighbor_row, neighbor_col, chain_parent_index, next_direction_for_neighbor[current_node_direction]);
+        return StackNode(neighbor_row, neighbor_col, next_direction_for_neighbor[current_node_direction], current_node_grad_orientation, chain_parent_index);
     }
 
     // Fallback: return current node (should not happen)
@@ -519,7 +514,7 @@ void ED::exploreChain(StackNode &current_node, int chain_parent_index)
         // Prepare DOWN node
         if (current_node.node_row + 1 < image_height)
         {
-            StackNode down_node(current_node.node_row + 1, current_node.node_column, chain_parent_index, DOWN);
+            StackNode down_node(current_node.node_row + 1, current_node.node_column, DOWN, EDGE_VERTICAL, chain_parent_index);
             if (edgeImgPointer[down_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
                 gradImgPointer[down_node.get_offset(image_width)] >= gradThresh)
             {
@@ -530,7 +525,7 @@ void ED::exploreChain(StackNode &current_node, int chain_parent_index)
         // Prepare UP node
         if (current_node.node_row - 1 >= 0)
         {
-            StackNode up_node(current_node.node_row - 1, current_node.node_column, chain_parent_index, UP);
+            StackNode up_node(current_node.node_row - 1, current_node.node_column, UP, EDGE_VERTICAL, chain_parent_index);
             if (edgeImgPointer[up_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
                 gradImgPointer[up_node.get_offset(image_width)] >= gradThresh)
             {
@@ -566,7 +561,7 @@ void ED::exploreChain(StackNode &current_node, int chain_parent_index)
         // Prepare LEFT node
         if (current_node.node_column - 1 >= 0)
         {
-            StackNode left_node(current_node.node_row, current_node.node_column - 1, LEFT, chain_parent_index);
+            StackNode left_node(current_node.node_row, current_node.node_column - 1, LEFT, EDGE_HORIZONTAL, chain_parent_index);
             if (edgeImgPointer[left_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
                 gradImgPointer[left_node.get_offset(image_width)] >= gradThresh)
             {
@@ -577,7 +572,7 @@ void ED::exploreChain(StackNode &current_node, int chain_parent_index)
         // Prepare RIGHT node
         if (current_node.node_column + 1 < image_width)
         {
-            StackNode right_node(current_node.node_row, current_node.node_column + 1, chain_parent_index, RIGHT);
+            StackNode right_node(current_node.node_row, current_node.node_column + 1, RIGHT, EDGE_HORIZONTAL, chain_parent_index);
             if (edgeImgPointer[right_node.get_offset(image_width)] >= ANCHOR_PIXEL ||
                 gradImgPointer[right_node.get_offset(image_width)] >= gradThresh)
             {
