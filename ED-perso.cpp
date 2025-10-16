@@ -8,8 +8,6 @@
 using namespace cv;
 using namespace std;
 
-// Debug logging macro
-
 ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval, int _minPathLen, double _sigma, bool _sumFlag)
 {
     DEBUG_LOG("=== ED Constructor Started ===");
