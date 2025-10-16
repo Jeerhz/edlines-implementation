@@ -23,15 +23,12 @@ class ED
 public:
     ED(cv::Mat _srcImage, int _gradThresh = 20, int _anchorThresh = 0, int _scanInterval = 1, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
     ED(const ED &cpyObj);
-    ED(short *gradImg, uchar *dirImg, int _width, int _height, int _gradThresh, int _anchorThresh, int _scanInterval = 1, int _minPathLen = 10, bool selectStableAnchors = true);
     ED();
 
     cv::Mat getEdgeImage();
     cv::Mat getAnchorImage();
     cv::Mat getSmoothImage();
     cv::Mat getGradImage();
-
-    Chain getChain();
 
     int getSegmentNo();
     int getAnchorNo();
@@ -81,9 +78,8 @@ protected:
 private:
     void ComputeGradient();
     void ComputeAnchorPoints();
-    void InitializeChains();
     void JoinAnchorPointsUsingSortedAnchors();
-    void exploreChain(StackNode &current_node, int chain_parent_index);
+    void exploreChain(StackNode &current_node, ChainNode *current_chain);
     /**
      * @brief Sorts anchor pixels by their gradient values in increasing order.
      * @return int* Pointer to a dynamically allocated array A containing the offsets of anchor pixels,
@@ -98,17 +94,12 @@ private:
      */
     int *sortAnchorsByGradValue();
 
-    static int LongestChain(Chain *chains, int root); // finds the longest path (chain) starting from a given root node. Each node (chains[root]) has a chain_len (length of the chain at this node) and up to two children (children[0] and children[1]).
-    static int RetrieveChainNos(Chain *chains, int root, int chainNos[]);
-
     void cleanUpSurroundingEdgePixels(StackNode &current_node);
-    StackNode getNextNode(StackNode &current_node, int chain_parent_index);
+    StackNode getNextNode(StackNode &current_node);
     bool validateNode(StackNode &node);
-    void addNodeToProcessStack(StackNode &node);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;
-    std::vector<cv::Point> edgePoints;
 
     cv::Mat edgeImage;
     cv::Mat gradImage;
