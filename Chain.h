@@ -23,14 +23,14 @@ public:
     }
     void setChild(int child_index, int child_value) { children[child_index] = child_value; }
 
-    cv::Point *getPixels();
-    void setPixels(cv::Point *p);
+    PPoint *getPixels();
+    void setPixels(PPoint *p);
 
     void addNewChain(PPoint p);
 
     void add_node(StackNode node);
 
-    cv::Point *pixels; // Pointer to the beginning of the pixels array TODO: put it in private
+    PPoint *pixels; // Pointer to the beginning of the pixels array TODO: put it in private
 
 private:
     int chain_dir;   // Direction of the chain
@@ -40,6 +40,8 @@ private:
 
     int totalPixels = 0;
     int noChains = 0;
+
+    int maxPixels = 0;
 
     int segmentNb = 0;
     std::vector<cv::Point> segmentPoints;

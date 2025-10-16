@@ -18,8 +18,10 @@ Chain::Chain(int image_width, int image_height)
     noChains = 0;
     segmentNb = 0;
 
+    maxPixels = image_width * image_height;
+
     // Allocate maximum possible pixel storage
-    pixels = new Point[image_width * image_height];
+    pixels = new PPoint[image_width * image_height]; // or cv::Point, will can it take PPoint then ??
 }
 
 Chain::Chain()
@@ -61,12 +63,12 @@ void Chain::setParent(int parent_index_in_chain)
     parent = parent_index_in_chain;
 }
 
-Point *Chain::getPixels()
+PPoint *Chain::getPixels()
 {
     return pixels;
 }
 
-void Chain::setPixels(cv::Point *px)
+void Chain::setPixels(PPoint *px)
 {
     pixels = px;
 }
@@ -86,20 +88,40 @@ void Chain::addNewChain(PPoint p)
     // This will be updated as nodes are added
     chain_dir = 0;
 }
-
 void Chain::add_node(StackNode node)
 {
-    // Add the node's position to the pixels array
-    if (pixels != nullptr)
-    {
-        GradOrientation grad_orientation = (node.node_direction == LEFT || node.node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
+    // Debug log each time the function is called
+    std::clog << "[DEBUG] Chain::add_node called: row=" << node.node_row
+              << " col=" << node.node_column
+              << " totalPixels=" << totalPixels
+              << " maxPixels=" << maxPixels
+              << " is_anchor=" << node.is_anchor
+              << " is_edge=" << node.is_edge
+              << " node_direction=" << node.node_direction
+              << std::endl;
 
-        // Store the new point in the pixels array
-        if (totalPixels >= 0)
-        { // Optionally check bounds if needed
-            pixels[totalPixels] = PPoint(node.node_row, node.node_column, node.grad_orientation, node.is_anchor, node.is_edge);
-            totalPixels++;
-            chain_len++;
-        }
+    // Add the node's position to the pixels array
+
+    if (pixels == nullptr)
+    {
+        // Ensure <stdexcept> is included in the file
+        throw std::runtime_error("Chain::add_node: pixels array is not initialized");
     }
+
+    if (totalPixels > maxPixels)
+    {
+        throw std::runtime_error("Chain::add_node: pixels array is full. Got " + std::to_string(totalPixels) + " pixels, max is " + std::to_string(maxPixels));
+    }
+
+    if (totalPixels < 0)
+    {
+        throw std::runtime_error("Chain::add_node: totalPixels is negative, which is invalid.");
+    }
+
+    GradOrientation grad_orientation = (node.node_direction == LEFT || node.node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
+
+    // Store the new point in the pixels array
+    pixels[totalPixels - 1] = PPoint(node.node_row, node.node_column, node.grad_orientation, node.is_anchor, node.is_edge);
+    totalPixels++;
+    chain_len++;
 }

@@ -10,6 +10,11 @@ PPoint::PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_a
     is_edge = _is_edge;
 }
 
+cv::Point PPoint::toPoint()
+{
+    return cv::Point(col, row);
+}
+
 int PPoint::get_offset(int image_width, int image_height)
 {
     if (col < 0 || row < 0 || col >= image_width || row >= image_height)

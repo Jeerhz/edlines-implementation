@@ -7,6 +7,8 @@
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
 
+#define DEBUG_LOG(msg) std::cout << "[DEBUG] " << msg << std::endl
+
 class ED
 /**
  * @class ED
