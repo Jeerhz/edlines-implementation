@@ -2,47 +2,41 @@
 #include <opencv2/opencv.hpp>
 #include "Stack.h"
 
+struct ChainNode
+{
+    std::vector<PPoint> pixels; // Pixels in this chain segment
+    ChainNode *next;            // Pointer to next chain (replaces binary tree children)
+    Direction direction;        // Direction of this chain
+    int length;                 // Number of pixels in this chain
+
+    ChainNode() : next(nullptr), direction(UNDEFINED), length(0) {}
+};
+
 class Chain
 {
 public:
     Chain(int image_width, int image_height);
-
     Chain();
+    ~Chain();
 
-    int getChainDir();
-    void setChainDir(Direction dir);
+    // Chain management
+    ChainNode *createNewChain(Direction dir);
+    void addPixelToChain(ChainNode *chain, const PPoint &pixel);
+    void linkChains(ChainNode *parent, ChainNode *child);
 
-    int getChainLen(int chain_index);
+    // Getters
+    ChainNode *getFirstChain() const { return first_chain; }
+    int getTotalChains() const { return total_chains; }
+    int getTotalPixels() const { return total_pixels; }
 
-    int getParent();
-    void setParent(int parent_index_in_chain);
-
-    int getChild(int child_index) const
-    {
-        return children[child_index];
-    }
-    void setChild(int child_index, int child_value) { children[child_index] = child_value; }
-
-    PPoint *getPixels();
-    void setPixels(PPoint *p);
-
-    void addNewChain(PPoint p);
-
-    void add_node(StackNode node);
-
-    PPoint *pixels; // Pointer to the beginning of the pixels array TODO: put it in private
+    // Segment extraction
+    std::vector<cv::Point> extractSegmentPixels(ChainNode *chain_head, int min_length);
 
 private:
-    int chain_dir;   // Direction of the chain
-    int chain_len;   // # of pixels in the chain
-    int parent;      // Parent of this node (-1 if no parent)
-    int children[2]; // Children of this node (-1 if no children)
-
-    int totalPixels = 0;
-    int noChains = 0;
-
-    int maxPixels = 0;
-
-    int segmentNb = 0;
-    std::vector<cv::Point> segmentPoints;
+    ChainNode *first_chain; // Head of linked list
+    int total_chains;       // Count of chains
+    int total_pixels;       // Total pixels across all chains
+    int image_width;
+    int image_height;
+    int max_pixels;
 };

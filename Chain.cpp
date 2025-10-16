@@ -4,124 +4,107 @@
 using namespace cv;
 
 Chain::Chain(int image_width, int image_height)
+    : first_chain(nullptr), total_chains(0), total_pixels(0),
+      image_width(image_width), image_height(image_height)
 {
-    // Initialize member variables
-    chain_dir = 0;
-    chain_len = 0;
-    parent = -1;
-    children[0] = -1;
-    children[1] = -1;
-
-    // Allocate memory for pixels based on image dimensions
-    // Worst case: all pixels in the image could be part of chains
-    totalPixels = 0;
-    noChains = 0;
-    segmentNb = 0;
-
-    maxPixels = image_width * image_height;
-
-    // Allocate maximum possible pixel storage
-    pixels = new PPoint[image_width * image_height]; // or cv::Point, will can it take PPoint then ??
+    max_pixels = image_width * image_height;
 }
 
 Chain::Chain()
+    : first_chain(nullptr), total_chains(0), total_pixels(0),
+      image_width(0), image_height(0), max_pixels(0)
 {
-    // Default constructor
-    chain_dir = 0;
-    chain_len = 0;
-    parent = -1;
-    children[0] = -1;
-    children[1] = -1;
-    pixels = nullptr;
-    totalPixels = 0;
-    noChains = 0;
-    segmentNb = 0;
 }
 
-int Chain::getChainDir()
+Chain::~Chain()
 {
-    return chain_dir;
-}
-
-void Chain::setChainDir(Direction dir)
-{
-    chain_dir = static_cast<int>(dir);
-}
-
-int Chain::getChainLen(int chain_index)
-{
-    return chain_len;
-}
-
-int Chain::getParent()
-{
-    return parent;
-}
-
-void Chain::setParent(int parent_index_in_chain)
-{
-    parent = parent_index_in_chain;
-}
-
-PPoint *Chain::getPixels()
-{
-    return pixels;
-}
-
-void Chain::setPixels(PPoint *px)
-{
-    pixels = px;
-}
-
-void Chain::addNewChain(PPoint p)
-{
-    // Start a new chain
-    noChains++;
-
-    // Reset chain properties for the new chain
-    chain_len = 0;
-    parent = -1;
-    children[0] = -1;
-    children[1] = -1;
-
-    // Set chain direction based on the anchor point's gradient orientation
-    // This will be updated as nodes are added
-    chain_dir = 0;
-}
-void Chain::add_node(StackNode node)
-{
-    // Debug log each time the function is called
-    std::clog << "[DEBUG] Chain::add_node called: row=" << node.node_row
-              << " col=" << node.node_column
-              << " totalPixels=" << totalPixels
-              << " maxPixels=" << maxPixels
-              << " is_anchor=" << node.is_anchor
-              << " is_edge=" << node.is_edge
-              << " node_direction=" << node.node_direction
-              << std::endl;
-
-    // Add the node's position to the pixels array
-
-    if (pixels == nullptr)
+    ChainNode *current = first_chain;
+    while (current != nullptr)
     {
-        // Ensure <stdexcept> is included in the file
-        throw std::runtime_error("Chain::add_node: pixels array is not initialized");
+        ChainNode *next = current->next;
+        delete current;
+        current = next;
+    }
+}
+
+ChainNode *Chain::createNewChain(Direction dir)
+{
+    ChainNode *new_chain = new ChainNode();
+    new_chain->direction = dir;
+    new_chain->length = 0;
+    new_chain->next = nullptr;
+
+    if (first_chain == nullptr)
+    {
+        first_chain = new_chain;
+    }
+    else
+    {
+        // Find last chain and append
+        ChainNode *current = first_chain;
+        while (current->next != nullptr)
+        {
+            current = current->next;
+        }
+        current->next = new_chain;
     }
 
-    if (totalPixels > maxPixels)
+    total_chains++;
+    return new_chain;
+}
+
+void Chain::addPixelToChain(ChainNode *chain, const PPoint &pixel)
+{
+    if (chain == nullptr)
+        return;
+
+    if (total_pixels >= max_pixels)
     {
-        throw std::runtime_error("Chain::add_node: pixels array is full. Got " + std::to_string(totalPixels) + " pixels, max is " + std::to_string(maxPixels));
+        throw std::runtime_error("Chain::addPixelToChain: Maximum pixel capacity exceeded");
     }
 
-    if (totalPixels < 0)
+    chain->pixels.push_back(pixel);
+    chain->length++;
+    total_pixels++;
+}
+
+void Chain::linkChains(ChainNode *parent, ChainNode *child)
+{
+    if (parent == nullptr || child == nullptr)
+        return;
+    parent->next = child;
+}
+
+std::vector<cv::Point> Chain::extractSegmentPixels(ChainNode *chain_head, int min_length)
+{
+    std::vector<cv::Point> result;
+
+    if (chain_head == nullptr)
+        return result;
+
+    ChainNode *current = chain_head;
+    bool first_chain_flag = true;
+
+    while (current != nullptr)
     {
-        throw std::runtime_error("Chain::add_node: totalPixels is negative, which is invalid.");
+        for (size_t i = 0; i < current->pixels.size(); ++i)
+        {
+            // Skip first pixel of non-first chains (it's a duplicate of last pixel of previous chain)
+            if (!first_chain_flag && i == 0)
+                continue;
+
+            result.push_back(current->pixels[i].toPoint());
+        }
+
+        first_chain_flag = false;
+        current = current->next;
     }
 
-    GradOrientation grad_orientation = (node.node_direction == LEFT || node.node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
+    // Validate minimum length
+    if ((int)result.size() < min_length)
+    {
+        result.clear();
+    }
 
-    // Store the new point in the pixels array
-    pixels[totalPixels - 1] = PPoint(node.node_row, node.node_column, node.grad_orientation, node.is_anchor, node.is_edge);
-    totalPixels++;
-    chain_len++;
+    return result;
 }

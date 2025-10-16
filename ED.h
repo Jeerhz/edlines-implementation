@@ -1,69 +1,18 @@
-/**************************************************************************************************************
- * Edge Drawing (ED) and Edge Drawing Parameter Free (EDPF) source codes.
- * Copyright (C) Cihan Topal & Cuneyt Akinlar
- * E-mails of the authors:  cihantopal@gmail.com, cuneytakinlar@gmail.com
- *
- * Please cite the following papers if you use Edge Drawing library:
- *
- * [1] C. Topal and C. Akinlar, “Edge Drawing: A Combined Real-Time Edge and Segment Detector,”
- *     Journal of Visual Communication and Image Representation, 23(6), 862-872, DOI: 10.1016/j.jvcir.2012.05.004 (2012).
- *
- * [2] C. Akinlar and C. Topal, “EDPF: A Real-time Parameter-free Edge Segment Detector with a False Detection Control,”
- *     International Journal of Pattern Recognition and Artificial Intelligence, 26(1), DOI: 10.1142/S0218001412550026 (2012).
- **************************************************************************************************************/
-
-#ifndef _ED_
-#define _ED_
+#pragma once
 
 #include <opencv2/opencv.hpp>
-
-/// Special defines
-#define EDGE_VERTICAL 0
-#define EDGE_HORIZONTAL 1
+#include "Chain.h"
+#include "Stack.h"
 
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
 
-enum Direction
-{
-    LEFT = 1,
-    RIGHT = 2,
-    UP = 3,
-    DOWN = 4
-};
-
-enum GradientOperator
-{
-    PREWITT_OPERATOR = 101,
-    SOBEL_OPERATOR = 102,
-    SCHARR_OPERATOR = 103,
-    LSD_OPERATOR = 104
-};
-
-struct StackNode
-{
-    int r, c;               // starting pixel (row, column)
-    int chain_parent_index; // parent chain (-1 if no parent)
-    int node_direction;     // direction where you are supposed to go
-};
-
-// Used during Edge Linking
-struct Chain
-{
-
-    int chain_dir; // Direction of the chain
-    int chain_len; // # of pixels in the chain
-    // int of parent and children corresponds to the index in the chains array
-    int parent;        // Parent of this node (-1 if no parent)
-    int children[2];   // Children of this node (-1 if no children)
-    cv::Point *pixels; // Pointer to the beginning of the pixels array
-};
+#define DEBUG_LOG(msg) std::cout << "[DEBUG] " << msg << std::endl
 
 class ED
 {
-
 public:
-    ED(cv::Mat _srcImage, GradientOperator _op = PREWITT_OPERATOR, int _gradThresh = 20, int _anchorThresh = 0, int _scanInterval = 1, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
+    ED(cv::Mat _srcImage, int _gradThresh = 20, int _anchorThresh = 0, int _scanInterval = 1, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
     ED(const ED &cpyObj);
     ED(short *gradImg, uchar *dirImg, int _width, int _height, int _gradThresh, int _anchorThresh, int _scanInterval = 1, int _minPathLen = 10, bool selectStableAnchors = true);
     ED();
@@ -82,27 +31,32 @@ public:
 
     cv::Mat drawParticularSegments(std::vector<int> list);
 
+    PPoint getPoint(int offset);
+
 protected:
-    int image_width;  // width of source image
-    int image_height; // height of source image
+    int image_width;
+    int image_height;
     uchar *srcImgPointer;
     std::vector<std::vector<cv::Point>> segmentPoints;
-    double sigma; // Gaussian sigma
+    double sigma;
     cv::Mat smoothImage;
-    uchar *edgeImgPointer;   // pointer to edge image data
-    uchar *smoothImgPointer; // pointer to smoothed image data
-    int segmentNb;           // count the number of segments
-    int minPathLen;          // minimum length of a segment
+    uchar *edgeImgPointer;
+    uchar *smoothImgPointer;
+    int segmentNb;
+    int minPathLen;
     cv::Mat srcImage;
 
 private:
     void ComputeGradient();
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
+    void exploreChain(StackNode &current_node, ChainNode *current_chain);
+
     int *sortAnchorsByGradValue();
 
-    static int LongestChain(Chain *chains, int root);
-    static int RetrieveChainNos(Chain *chains, int root, int chainNos[]);
+    void cleanUpSurroundingEdgePixels(StackNode &current_node);
+    StackNode getNextNode(StackNode &current_node);
+    bool validateNode(StackNode &node);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;
@@ -111,13 +65,13 @@ private:
     cv::Mat edgeImage;
     cv::Mat gradImage;
 
-    uchar *gradOrientationImgPointer; // pointer to direction image data
-    short *gradImgPointer;            // pointer to gradient image data
+    GradOrientation *gradOrientationImgPointer;
+    std::vector<StackNode> process_stack;
+    short *gradImgPointer;
 
-    int gradThresh;   // gradient threshold
-    int anchorThresh; // anchor point threshold,
+    int gradThresh;
+    int anchorThresh;
     int scanInterval;
     bool sumFlag;
+    Chain chain;
 };
-
-#endif
