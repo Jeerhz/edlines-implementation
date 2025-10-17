@@ -3,7 +3,6 @@
 #include "Stack.h"
 #include <fstream>
 #include <iostream>
-#include <chrono>
 #include <algorithm>
 
 using namespace cv;
@@ -15,10 +14,10 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     assert(_gradThresh >= 1 && "Gradient threshold must be >= 1");
     assert(_anchorThresh >= 0 && "Anchor threshold must be >= 0");
     assert(_sigma >= 0 && "Sigma must be >= 0");
+
     srcImage = _srcImage;
     image_height = srcImage.rows;
     image_width = srcImage.cols;
-    DEBUG_LOG("Image dimensions: " << image_width << "x" << image_height);
     gradThresh = _gradThresh;
     anchorThresh = _anchorThresh;
     scanInterval = _scanInterval;
@@ -31,38 +30,27 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     smoothImage = Mat(image_height, image_width, CV_8UC1);
     gradImage = Mat(image_height, image_width, CV_16SC1);
     srcImgPointer = srcImage.data;
+
     DEBUG_LOG("--- Step 1: Gaussian Smoothing ---");
-    auto start_time = chrono::high_resolution_clock::now();
     if (sigma == 1.0)
         GaussianBlur(srcImage, smoothImage, Size(5, 5), sigma);
     else
         GaussianBlur(srcImage, smoothImage, Size(), sigma);
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
-    DEBUG_LOG("Gaussian smoothing completed in " << duration.count() << "ms");
+    DEBUG_LOG("Gaussian smoothing completed. ");
     smoothImgPointer = smoothImage.data;
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
     gradOrientationImgPointer = new GradOrientation[image_width * image_height];
     DEBUG_LOG("--- Step 2: Computing Gradient ---");
-    start_time = chrono::high_resolution_clock::now();
     ComputeGradient();
-    end_time = chrono::high_resolution_clock::now();
-    duration = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
-    DEBUG_LOG("Gradient computation completed in " << duration.count() << "ms");
+    DEBUG_LOG("Gradient computation completed. ");
     DEBUG_LOG("--- Step 3: Computing Anchor Points ---");
-    start_time = chrono::high_resolution_clock::now();
     ComputeAnchorPoints();
-    end_time = chrono::high_resolution_clock::now();
-    duration = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
-    DEBUG_LOG("Anchor point computation completed in " << duration.count() << "ms");
+    DEBUG_LOG("Anchor point computation completed. ");
     DEBUG_LOG("Total anchors found: " << anchorNb);
     DEBUG_LOG("--- Step 4: Joining Anchor Points ---");
-    start_time = chrono::high_resolution_clock::now();
     JoinAnchorPointsUsingSortedAnchors();
-    end_time = chrono::high_resolution_clock::now();
-    duration = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
-    DEBUG_LOG("Anchor joining completed in " << duration.count() << "ms");
+    DEBUG_LOG("Anchor joining completed. ");
     DEBUG_LOG("Total segments created: " << segmentNb);
     delete[] gradOrientationImgPointer;
     DEBUG_LOG("=== ED Constructor Completed ===\n");
@@ -88,12 +76,10 @@ ED::ED(const ED &cpyObj)
     edgeImgPointer = edgeImage.data;
     segmentPoints = cpyObj.segmentPoints;
     segmentNb = cpyObj.segmentNb;
-    DEBUG_LOG("Copy constructor completed. Segments copied: " << segmentNb);
     DEBUG_LOG("=== ED Copy Constructor Completed ===\n");
 }
 ED::ED()
 {
-    DEBUG_LOG("=== ED Default Constructor ===\n");
 }
 Mat ED::getEdgeImage()
 {
@@ -219,7 +205,7 @@ void ED::ComputeAnchorPoints()
     anchorNb = anchorPoints.size();
     DEBUG_LOG("ComputeAnchorPoints() completed. Anchors: " << anchorNb);
 }
-PPoint ED::getPoint(int offset)
+PPoint ED::getPPoint(int offset)
 {
     int row = offset / image_width;
     int col = offset % image_width;
@@ -251,14 +237,14 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
     for (int k = anchorNb - 1; k >= 0; k--)
     {
         int anchorPixelOffset = SortedAnchors[k];
-        PPoint anchor = getPoint(anchorPixelOffset);
+        PPoint anchor = getPPoint(anchorPixelOffset);
         // Skip if already processed
         if (edgeImgPointer[anchorPixelOffset] == EDGE_PIXEL)
         {
-            DEBUG_LOG("Anchor at offset " << anchorPixelOffset << " already processed, skipping");
+            // DEBUG_LOG("Anchor at offset " << anchorPixelOffset << " already processed, skipping");
             continue;
         }
-        DEBUG_LOG("\n--- Processing anchor " << (anchorNb - k) << "/" << anchorNb << " ---");
+        // DEBUG_LOG("\n--- Processing anchor " << (anchorNb - k) << "/" << anchorNb << " ---");
         ChainNode *anchor_chain_root = chain.createNewChain(anchor.grad_orientation == EDGE_VERTICAL ? UP : LEFT);
         chain.addPixelToChain(anchor_chain_root, anchor);
         edgeImgPointer[anchorPixelOffset] = EDGE_PIXEL;
@@ -273,7 +259,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             process_stack.push_back(StackNode(anchor, LEFT, 0));
             process_stack.push_back(StackNode(anchor, RIGHT, 0));
         }
-        DEBUG_LOG("Stack initialized with " << process_stack.size() << " directions");
+        // DEBUG_LOG("Stack initialized with " << process_stack.size() << " directions");
         ChainNode *current_chain = anchor_chain_root;
         while (!process_stack.empty())
         {
@@ -289,17 +275,17 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         {
             segmentPoints.push_back(segment);
             segmentNb++;
-            DEBUG_LOG("Created segment with " << segment.size() << " pixels");
+            // DEBUG_LOG("Created segment with " << segment.size() << " pixels");
         }
         else
         {
-            DEBUG_LOG("Segment too short, discarded");
+            // DEBUG_LOG("Segment too short, discarded");
         }
     }
     delete[] SortedAnchors;
     DEBUG_LOG("\n=== Finished JoinAnchorPointsUsingSortedAnchors ===\n");
 }
-void ED::cleanUpSurroundingEdgePixels(StackNode &current_node)
+void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
 {
     if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
     {
@@ -378,7 +364,7 @@ bool ED::validateNode(StackNode &node)
 }
 void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
 {
-    DEBUG_LOG("  >> exploreChain started at row: " << current_node.node_row << ", col: " << current_node.node_column);
+    // DEBUG_LOG("  >> exploreChain started at row: " << current_node.node_row << ", col: " << current_node.node_column);
     bool is_horizontal = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT);
     while (true)
     {
@@ -386,8 +372,8 @@ void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
         if (gradOrientationImgPointer[current_node.get_offset(image_width)] != expected_orientation)
             break;
         edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
-        cleanUpSurroundingEdgePixels(current_node);
-        PPoint pixel = getPoint(current_node.get_offset(image_width));
+        cleanUpSurroundingAnchorPixels(current_node);
+        PPoint pixel = getPPoint(current_node.get_offset(image_width));
         chain.addPixelToChain(current_chain, pixel);
         StackNode next_node = getNextNode(current_node);
         if (!validateNode(next_node))
@@ -430,5 +416,5 @@ void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
                 process_stack.push_back(right_node);
         }
     }
-    DEBUG_LOG("  << exploreChain completed");
+    // DEBUG_LOG("  << exploreChain completed");
 }

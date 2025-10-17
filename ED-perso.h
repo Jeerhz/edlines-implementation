@@ -39,7 +39,7 @@ public:
 
     cv::Mat drawParticularSegments(std::vector<int> list);
 
-    PPoint getPoint(int offset);
+    PPoint getPPoint(int offset);
 
 protected:
     int image_width;  // width of source image
@@ -94,7 +94,7 @@ private:
      */
     int *sortAnchorsByGradValue();
 
-    void cleanUpSurroundingEdgePixels(StackNode &current_node);
+    void cleanUpSurroundingAnchorPixels(StackNode &current_node);
     StackNode getNextNode(StackNode &current_node);
     bool validateNode(StackNode &node);
 
