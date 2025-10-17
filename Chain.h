@@ -5,7 +5,7 @@
 struct ChainNode
 {
     std::vector<PPoint> pixels; // Pixels in this chain segment
-    ChainNode *next;            // Pointer to next chain (replaces binary tree children)
+    ChainNode *next;            // Pointer to next chain
     Direction direction;        // Direction of this chain
     int length;                 // Number of pixels in this chain
 
