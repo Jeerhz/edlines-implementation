@@ -18,10 +18,21 @@
 #include "ED-perso.h"
 #include "NFA.h"
 
+// Pairs for line endpoint combinations s = start, e = end
 #define SS 0
 #define SE 1
 #define ES 2
 #define EE 3
+
+struct EDLinesConfig
+{
+    static constexpr int MIN_LINE_LENGTH = 9;
+    static constexpr int BAD_PIXEL_THRESHOLD = 5;
+    static constexpr int LONG_LINE_AUTO_ACCEPT = 80;
+    static constexpr int SHORT_LINE_THRESHOLD = 25;
+    static constexpr double PRECISION_ANGLE_DEG = 22.5;
+    static constexpr double NFA_PROBABILITY = 0.125;
+};
 
 // light weight struct for Start & End coordinates of the line segment
 struct LS
@@ -89,6 +100,9 @@ private:
     double max_error;
     double prec;
     NFALUT *nfa;
+
+    void initializeLineDetection(double _line_error, int _min_line_len,
+                                 double _max_distance_between_two_lines, double _max_error);
 
     int ComputeMinLineLength();
     void SplitSegment2Lines(double *x, double *y, int noPixels, int segmentNo);

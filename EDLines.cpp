@@ -4,82 +4,24 @@
 using namespace cv;
 using namespace std;
 
-EDLines::EDLines(Mat srcImage, double _line_error, int _min_line_len, double _max_distance_between_two_lines, double _max_error)
+EDLines::EDLines(Mat srcImage, double _line_error, int _min_line_len,
+                 double _max_distance_between_two_lines, double _max_error)
     : ED(srcImage, 36, 8)
 {
-    min_line_len = _min_line_len;
-    line_error = _line_error;
-    max_distance_between_two_lines = _max_distance_between_two_lines;
-    max_error = _max_error;
-
-    if (min_line_len == -1) // If no initial value given, compute it
-        min_line_len = ComputeMinLineLength();
-
-    if (min_line_len < 9) // avoids small line segments in the result. Might be deleted!
-        min_line_len = 9;
-
-    // Temporary buffers used during line fitting
-    size_t buffer_size = (image_width + image_height) * 8;
-    for (int segmentNumber = 0; segmentNumber < segmentPoints.size(); segmentNumber++)
-    {
-        auto segment_size = segmentPoints[segmentNumber].size();
-        buffer_size = std::max(buffer_size, segment_size);
-    }
-    double *x = new double[buffer_size];
-    double *y = new double[buffer_size];
-
-    linesNo = 0;
-
-    // Use the whole segment
-    for (int segmentNumber = 0; segmentNumber < segmentPoints.size(); segmentNumber++)
-    {
-        int k = 0;
-        std::vector<Point> segment = segmentPoints[segmentNumber];
-        for (int k = 0; k < segment.size(); k++)
-        {
-            x[k] = segment[k].x;
-            y[k] = segment[k].y;
-        }
-        SplitSegment2Lines(x, y, (int)segment.size(), segmentNumber);
-    }
-
-    /*----------- JOIN COLLINEAR LINES ----------------*/
-    JoinCollinearLines();
-
-    /*----------- VALIDATE LINES ----------------*/
-#define PRECISON_ANGLE 22.5
-    prec = (PRECISON_ANGLE / 180) * M_PI;
-    double prob = 0.125;
-#undef PRECISON_ANGLE
-
-    double logNT = 2.0 * (log10((double)image_width) + log10((double)image_height));
-
-    int lutSize = (image_width + image_height) / 8;
-    nfa = new NFALUT(lutSize, prob, logNT); // create look up table
-
-    ValidateLineSegments();
-
-    // Delete redundant space from lines
-    // Pop them back
-    int size = (int)lines.size();
-    for (int i = 1; i <= size - linesNo; i++)
-        lines.pop_back();
-
-    for (int i = 0; i < linesNo; i++)
-    {
-        Point2d start(lines[i].sx, lines[i].sy);
-        Point2d end(lines[i].ex, lines[i].ey);
-
-        linePoints.push_back(LS(start, end));
-    } // end-for
-
-    delete[] x;
-    delete[] y;
-    delete nfa;
+    initializeLineDetection(_line_error, _min_line_len,
+                            _max_distance_between_two_lines, _max_error);
 }
 
-EDLines::EDLines(ED obj, double _line_error, int _min_line_len, double _max_distance_between_two_lines, double _max_error)
+EDLines::EDLines(ED obj, double _line_error, int _min_line_len,
+                 double _max_distance_between_two_lines, double _max_error)
     : ED(obj)
+{
+    initializeLineDetection(_line_error, _min_line_len,
+                            _max_distance_between_two_lines, _max_error);
+}
+
+void EDLines::initializeLineDetection(double _line_error, int _min_line_len,
+                                      double _max_distance_between_two_lines, double _max_error)
 {
     min_line_len = _min_line_len;
     line_error = _line_error;
@@ -94,7 +36,7 @@ EDLines::EDLines(ED obj, double _line_error, int _min_line_len, double _max_dist
 
     // Temporary buffers used during line fitting
     size_t buffer_size = (image_width + image_height) * 8;
-    for (int segmentNumber = 0; segmentNumber < segmentPoints.size(); segmentNumber++)
+    for (int segmentNumber = 0; segmentNumber < (int)segmentPoints.size(); segmentNumber++)
     {
         auto segment_size = segmentPoints[segmentNumber].size();
         buffer_size = std::max(buffer_size, segment_size);
@@ -105,14 +47,13 @@ EDLines::EDLines(ED obj, double _line_error, int _min_line_len, double _max_dist
     linesNo = 0;
 
     // Use the whole segment
-    for (int segmentNumber = 0; segmentNumber < segmentPoints.size(); segmentNumber++)
+    for (int segmentNumber = 0; segmentNumber < (int)segmentPoints.size(); segmentNumber++)
     {
-        int k = 0;
-        std::vector<Point> segment = segmentPoints[segmentNumber];
-        for (int k = 0; k < segment.size(); k++)
+        const std::vector<Point> &segment = segmentPoints[segmentNumber];
+        for (size_t kk = 0; kk < segment.size(); kk++)
         {
-            x[k] = segment[k].x;
-            y[k] = segment[k].y;
+            x[kk] = segment[kk].x;
+            y[kk] = segment[kk].y;
         }
         SplitSegment2Lines(x, y, (int)segment.size(), segmentNumber);
     }
@@ -552,6 +493,35 @@ bool EDLines::ValidateLineSegmentRect(int *x, int *y, LineSegment *ls)
     return nfa->checkValidationByNFA(count, aligned);
 }
 
+/**
+ * @brief Compute the shortest (perpendicular) Euclidean distance from a point to a line.
+ *
+ * This function computes the minimal distance between the point (x1, y1) and an infinite
+ * straight line described by parameters (a, b). The meaning of (a, b) is determined by
+ * the 'invert' flag:
+ *   - invert == 0: the line is represented as y = a + b * x.
+ *   - invert != 0: the line is represented as x = a + b * y.
+ *
+ * For nonzero b the function computes the perpendicular line through (x1, y1), finds the
+ * intersection with the given line, and returns the Euclidean distance between (x1, y1)
+ * and that intersection point. For b == 0 the function handles the axis-aligned special
+ * cases directly (horizontal or vertical lines).
+ *
+ * @param x1   X coordinate of the point.
+ * @param y1   Y coordinate of the point.
+ * @param a    Line parameter: intercept when the line is written as y = a + b*x (invert == 0)
+ *               or as x = a + b*y (invert != 0).
+ * @param b    Line slope parameter (slope for y = a + b*x or analogous coefficient for x = a + b*y).
+ * @param invert If 0, treat the line as y = a + b*x; if nonzero, treat the line as x = a + b*y.
+ *
+ * @return The minimal Euclidean distance (double) between the point (x1, y1) and the specified line.
+ *
+ * @note
+ * - If b == 0 and invert == 0, the line is horizontal (y = a) and the projection is (x1, a).
+ * - If b == 0 and invert != 0, the line is vertical (x = a) and the projection is (a, y1).
+ * - The function assumes finite double inputs. For real b != 0, the perpendicular intersection
+ *   computation is well-defined (there is no real b such that -1/b == b).
+ */
 double EDLines::ComputeMinDistance(double x1, double y1, double a, double b, int invert)
 {
     double x2, y2;

@@ -37,24 +37,30 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     else
         GaussianBlur(srcImage, smoothImage, Size(), sigma);
     DEBUG_LOG("Gaussian smoothing completed. ");
+
     smoothImgPointer = smoothImage.data;
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
     gradOrientationImgPointer = new GradOrientation[image_width * image_height];
+
     DEBUG_LOG("--- Step 2: Computing Gradient ---");
     ComputeGradient();
     DEBUG_LOG("Gradient computation completed. ");
+
     DEBUG_LOG("--- Step 3: Computing Anchor Points ---");
     ComputeAnchorPoints();
     DEBUG_LOG("Anchor point computation completed. ");
     DEBUG_LOG("Total anchors found: " << anchorNb);
+
     DEBUG_LOG("--- Step 4: Joining Anchor Points ---");
     JoinAnchorPointsUsingSortedAnchors();
     DEBUG_LOG("Anchor joining completed. ");
     DEBUG_LOG("Total segments created: " << segmentNb);
+
     delete[] gradOrientationImgPointer;
     DEBUG_LOG("=== ED Constructor Completed ===\n");
 }
+
 ED::ED(const ED &cpyObj)
 {
     DEBUG_LOG("=== ED Copy Constructor Started ===");
@@ -78,13 +84,16 @@ ED::ED(const ED &cpyObj)
     segmentNb = cpyObj.segmentNb;
     DEBUG_LOG("=== ED Copy Constructor Completed ===\n");
 }
+
 ED::ED()
 {
 }
+
 Mat ED::getEdgeImage()
 {
     return edgeImage;
 }
+
 Mat ED::getAnchorImage()
 {
     Mat anchorImage = Mat(edgeImage.size(), edgeImage.type(), Scalar(0));
@@ -92,32 +101,39 @@ Mat ED::getAnchorImage()
         anchorImage.at<uchar>(p) = 255;
     return anchorImage;
 }
+
 Mat ED::getSmoothImage()
 {
     return smoothImage;
 }
+
 Mat ED::getGradImage()
 {
     Mat result8UC1;
     convertScaleAbs(gradImage, result8UC1);
     return result8UC1;
 }
+
 int ED::getSegmentNo()
 {
     return segmentNb;
 }
+
 int ED::getAnchorNo()
 {
     return anchorNb;
 }
+
 vector<Point> ED::getAnchorPoints()
 {
     return anchorPoints;
 }
+
 vector<vector<Point>> ED::getSegments()
 {
     return segmentPoints;
 }
+
 vector<vector<Point>> ED::getSortedSegments()
 {
     sort(segmentPoints.begin(), segmentPoints.end(),
@@ -125,6 +141,7 @@ vector<vector<Point>> ED::getSortedSegments()
          { return a.size() > b.size(); });
     return segmentPoints;
 }
+
 Mat ED::drawParticularSegments(vector<int> list)
 {
     Mat segmentsImage = Mat(edgeImage.size(), edgeImage.type(), Scalar(0));
@@ -133,29 +150,40 @@ Mat ED::drawParticularSegments(vector<int> list)
             segmentsImage.at<uchar>(p) = 255;
     return segmentsImage;
 }
+
 void ED::ComputeGradient()
 {
     DEBUG_LOG("ComputeGradient() started");
+
+    // Set borders to below threshold
     for (int col_index = 0; col_index < image_width; col_index++)
     {
-        gradImgPointer[col_index] = gradImgPointer[(image_height - 1) * image_width + col_index] = gradThresh - 1;
+        gradImgPointer[col_index] = gradThresh - 1;
+        gradImgPointer[(image_height - 1) * image_width + col_index] = gradThresh - 1;
     }
     for (int row_index = 1; row_index < image_height - 1; row_index++)
     {
-        gradImgPointer[row_index * image_width] = gradImgPointer[(row_index + 1) * image_width - 1] = gradThresh - 1;
+        gradImgPointer[row_index * image_width] = gradThresh - 1;
+        gradImgPointer[(row_index + 1) * image_width - 1] = gradThresh - 1;
     }
+
     int pixels_above_threshold = 0;
     for (int row_index = 1; row_index < image_height - 1; row_index++)
     {
         for (int col_index = 1; col_index < image_width - 1; col_index++)
         {
-            int com1 = smoothImgPointer[(row_index + 1) * image_width + col_index + 1] - smoothImgPointer[(row_index - 1) * image_width + col_index - 1];
-            int com2 = smoothImgPointer[(row_index - 1) * image_width + col_index + 1] - smoothImgPointer[(row_index + 1) * image_width + col_index - 1];
+            int com1 = smoothImgPointer[(row_index + 1) * image_width + col_index + 1] -
+                       smoothImgPointer[(row_index - 1) * image_width + col_index - 1];
+            int com2 = smoothImgPointer[(row_index - 1) * image_width + col_index + 1] -
+                       smoothImgPointer[(row_index + 1) * image_width + col_index - 1];
+
             int gx = abs(com1 + com2 + 2 * (smoothImgPointer[row_index * image_width + col_index + 1] - smoothImgPointer[row_index * image_width + col_index - 1]));
             int gy = abs(com1 - com2 + 2 * (smoothImgPointer[(row_index + 1) * image_width + col_index] - smoothImgPointer[(row_index - 1) * image_width + col_index]));
+
             int sum = sumFlag ? (gx + gy) : (int)sqrt((double)gx * gx + gy * gy);
             int index = row_index * image_width + col_index;
             gradImgPointer[index] = sum;
+
             if (sum >= gradThresh)
             {
                 pixels_above_threshold++;
@@ -165,6 +193,7 @@ void ED::ComputeGradient()
     }
     DEBUG_LOG("Gradient computation completed. Pixels above threshold: " << pixels_above_threshold);
 }
+
 void ED::ComputeAnchorPoints()
 {
     for (int i = 2; i < image_height - 2; i++)
@@ -176,10 +205,12 @@ void ED::ComputeAnchorPoints()
             start = scanInterval;
             inc = scanInterval;
         }
+
         for (int j = start; j < image_width - 2; j += inc)
         {
             if (gradImgPointer[i * image_width + j] < gradThresh)
                 continue;
+
             if (gradOrientationImgPointer[i * image_width + j] == EDGE_VERTICAL)
             {
                 int diff1 = gradImgPointer[i * image_width + j] - gradImgPointer[i * image_width + j - 1];
@@ -205,49 +236,59 @@ void ED::ComputeAnchorPoints()
     anchorNb = anchorPoints.size();
     DEBUG_LOG("ComputeAnchorPoints() completed. Anchors: " << anchorNb);
 }
+
 PPoint ED::getPPoint(int offset)
 {
     int row = offset / image_width;
     int col = offset % image_width;
-    return PPoint(row, col, gradOrientationImgPointer[offset], (edgeImgPointer[offset] == ANCHOR_PIXEL), (edgeImgPointer[offset] == EDGE_PIXEL));
+    return PPoint(row, col, gradOrientationImgPointer[offset],
+                  (edgeImgPointer[offset] == ANCHOR_PIXEL),
+                  (edgeImgPointer[offset] == EDGE_PIXEL));
 }
+
 int *ED::sortAnchorsByGradValue()
 {
     int *A = new int[anchorPoints.size()];
     std::vector<std::pair<int, int>> grad_anchor_pairs;
     grad_anchor_pairs.reserve(anchorPoints.size());
+
     for (size_t i = 0; i < anchorPoints.size(); ++i)
     {
         Point &p = anchorPoints[i];
         int offset = p.y * image_width + p.x;
         grad_anchor_pairs.emplace_back(gradImgPointer[offset], offset);
     }
+
     std::sort(grad_anchor_pairs.begin(), grad_anchor_pairs.end());
+
     for (size_t i = 0; i < grad_anchor_pairs.size(); ++i)
     {
         A[i] = grad_anchor_pairs[i].second;
     }
+
     return A;
 }
+
 void ED::JoinAnchorPointsUsingSortedAnchors()
 {
     DEBUG_LOG("\n=== Starting JoinAnchorPointsUsingSortedAnchors ===");
     int *SortedAnchors = sortAnchorsByGradValue();
     DEBUG_LOG("Sorted " << anchorNb << " anchors by gradient value");
+
     for (int k = anchorNb - 1; k >= 0; k--)
     {
         int anchorPixelOffset = SortedAnchors[k];
         PPoint anchor = getPPoint(anchorPixelOffset);
+
         // Skip if already processed
         if (edgeImgPointer[anchorPixelOffset] == EDGE_PIXEL)
-        {
-            // DEBUG_LOG("Anchor at offset " << anchorPixelOffset << " already processed, skipping");
             continue;
-        }
-        // DEBUG_LOG("\n--- Processing anchor " << (anchorNb - k) << "/" << anchorNb << " ---");
-        ChainNode *anchor_chain_root = chain.createNewChain(anchor.grad_orientation == EDGE_VERTICAL ? UP : LEFT);
+
+        ChainNode *anchor_chain_root = chain.createNewChain(
+            anchor.grad_orientation == EDGE_VERTICAL ? UP : LEFT);
         chain.addPixelToChain(anchor_chain_root, anchor);
         edgeImgPointer[anchorPixelOffset] = EDGE_PIXEL;
+
         process_stack.clear();
         if (anchor.grad_orientation == EDGE_VERTICAL)
         {
@@ -259,19 +300,33 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             process_stack.push_back(StackNode(anchor, LEFT, 0));
             process_stack.push_back(StackNode(anchor, RIGHT, 0));
         }
-        // DEBUG_LOG("Stack initialized with " << process_stack.size() << " directions");
-        ChainNode *current_chain = anchor_chain_root;
+
+        ChainNode *current_parent = anchor_chain_root;
+        bool first_child = true;
+
         while (!process_stack.empty())
         {
             StackNode currentNode = process_stack.back();
             process_stack.pop_back();
+
             ChainNode *new_chain = chain.createNewChain(currentNode.node_direction);
-            chain.linkChains(current_chain, new_chain);
-            current_chain = new_chain;
-            exploreChain(currentNode, current_chain);
+
+            if (first_child)
+            {
+                chain.setLeftOrUpChild(current_parent, new_chain);
+                first_child = false;
+            }
+            else
+            {
+                chain.setRightOrDownChild(current_parent, new_chain);
+                first_child = true;
+                current_parent = new_chain; // Move to next level
+            }
+
+            exploreChain(currentNode, new_chain);
         }
 
-        // For the list of segments we only keep the longest path from this anchor. No T-junctions.
+        // Prune to keep only the longest path
         chain.pruneToLongestPath(anchor_chain_root);
 
         vector<Point> segment = chain.extractSegmentPixels(anchor_chain_root, minPathLen);
@@ -279,16 +334,13 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         {
             segmentPoints.push_back(segment);
             segmentNb++;
-            // DEBUG_LOG("Created segment with " << segment.size() << " pixels");
-        }
-        else
-        {
-            // DEBUG_LOG("Segment too short, discarded");
         }
     }
+
     delete[] SortedAnchors;
     DEBUG_LOG("\n=== Finished JoinAnchorPointsUsingSortedAnchors ===\n");
 }
+
 void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
 {
     if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
@@ -306,11 +358,13 @@ void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
             edgeImgPointer[current_node.node_row * image_width + current_node.node_column + 1] = 0;
     }
 }
+
 StackNode ED::getNextNode(StackNode &current_node)
 {
     int current_row = current_node.node_row;
     int current_col = current_node.node_column;
     Direction current_node_direction = current_node.node_direction;
+
     static const int neighbor_row_offsets[4][3] = {
         {-1, 0, 1},   // LEFT
         {-1, 0, 1},   // RIGHT
@@ -323,26 +377,33 @@ StackNode ED::getNextNode(StackNode &current_node)
         {-1, 0, 1},   // UP
         {-1, 0, 1}    // DOWN
     };
+
+    // First, look for anchor pixels
     for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
     {
         int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][neighbor_idx];
         int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][neighbor_idx];
-        if (neighbor_row >= 0 && neighbor_row < image_height && neighbor_col >= 0 && neighbor_col < image_width)
+
+        if (neighbor_row >= 0 && neighbor_row < image_height &&
+            neighbor_col >= 0 && neighbor_col < image_width)
         {
             int edge_val = edgeImgPointer[neighbor_row * image_width + neighbor_col];
-            // Only accept anchor pixels, not already-visited edge pixels
             if (edge_val == ANCHOR_PIXEL)
             {
                 return StackNode(neighbor_row, neighbor_col, current_node_direction, current_node.grad_orientation);
             }
         }
     }
+
+    // If no anchor found, find pixel with maximum gradient
     int max_gradient = -1, max_gradient_neighbor_idx = -1;
     for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
     {
         int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][neighbor_idx];
         int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][neighbor_idx];
-        if (neighbor_row >= 0 && neighbor_row < image_height && neighbor_col >= 0 && neighbor_col < image_width)
+
+        if (neighbor_row >= 0 && neighbor_row < image_height &&
+            neighbor_col >= 0 && neighbor_col < image_width)
         {
             int gradient = gradImgPointer[neighbor_row * image_width + neighbor_col];
             if (gradient > max_gradient)
@@ -352,38 +413,47 @@ StackNode ED::getNextNode(StackNode &current_node)
             }
         }
     }
+
     if (max_gradient_neighbor_idx != -1)
     {
         int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][max_gradient_neighbor_idx];
         int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][max_gradient_neighbor_idx];
         return StackNode(neighbor_row, neighbor_col, current_node_direction, current_node.grad_orientation);
     }
+
     return current_node;
 }
+
 bool ED::validateNode(StackNode &node)
 {
     bool is_edge_pixel = (edgeImgPointer[node.get_offset(image_width)] == EDGE_PIXEL);
     bool below_threshold = (gradImgPointer[node.get_offset(image_width)] < gradThresh);
     return !(is_edge_pixel || below_threshold);
 }
+
 void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
 {
-    // DEBUG_LOG("  >> exploreChain started at row: " << current_node.node_row << ", col: " << current_node.node_column);
     bool is_horizontal = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT);
+
     while (true)
     {
         GradOrientation expected_orientation = is_horizontal ? EDGE_HORIZONTAL : EDGE_VERTICAL;
         if (gradOrientationImgPointer[current_node.get_offset(image_width)] != expected_orientation)
             break;
+
         edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
         cleanUpSurroundingAnchorPixels(current_node);
+
         PPoint pixel = getPPoint(current_node.get_offset(image_width));
         chain.addPixelToChain(current_chain, pixel);
+
         StackNode next_node = getNextNode(current_node);
         if (!validateNode(next_node))
             break;
+
         current_node = next_node;
     }
+
     if (is_horizontal)
     {
         // Add UP and DOWN for horizontal chains
@@ -420,5 +490,4 @@ void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
                 process_stack.push_back(right_node);
         }
     }
-    // DEBUG_LOG("  << exploreChain completed");
 }
