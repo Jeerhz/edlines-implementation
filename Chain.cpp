@@ -75,6 +75,64 @@ void Chain::linkChains(ChainNode *parent, ChainNode *child)
     (*parent).next = child;
 }
 
+int Chain::longest_chain_length(ChainNode *chain_node)
+{
+    if (chain_node == nullptr)
+        return 0;
+
+    ChainNode *left_or_up_childNode = (*chain_node).next;
+    ChainNode *right_or_down_childNode = nullptr;
+    if (left_or_up_childNode != nullptr)
+        right_or_down_childNode = (*left_or_up_childNode).next;
+
+    int left_or_up_length = longest_chain_length(left_or_up_childNode);
+    int right_or_down_length = longest_chain_length(right_or_down_childNode);
+
+    return (*chain_node).length + std::max(left_or_up_length, right_or_down_length);
+}
+void Chain::pruneToLongestPath(ChainNode *head_chain_node)
+{
+    if (head_chain_node == nullptr)
+        return;
+
+    ChainNode *current = head_chain_node;
+
+    while (current != nullptr)
+    {
+        ChainNode *left_or_up_childNode = (*current).next;
+        ChainNode *right_or_down_childNode = nullptr;
+        if (left_or_up_childNode != nullptr)
+            right_or_down_childNode = (*left_or_up_childNode).next;
+
+        // If there is no left child, nothing to prune
+        if (left_or_up_childNode == nullptr)
+            break;
+
+        if (longest_chain_length(left_or_up_childNode) >= longest_chain_length(right_or_down_childNode))
+        {
+            // Keep left/up child, delete right/down child if it exists
+            if (right_or_down_childNode != nullptr)
+            {
+                delete right_or_down_childNode;
+            }
+            (*current).next = left_or_up_childNode;
+            // Ensure the kept path is a single branch
+            (*left_or_up_childNode).next = nullptr;
+        }
+        else
+        {
+            // Keep right/down child, delete left/up child if it exists
+            if (left_or_up_childNode != nullptr)
+            {
+                delete left_or_up_childNode;
+            }
+            (*current).next = right_or_down_childNode;
+        }
+
+        current = (*current).next;
+    }
+}
+
 std::vector<cv::Point> Chain::extractSegmentPixels(ChainNode *chain_head, int min_length)
 {
     std::vector<cv::Point> result;

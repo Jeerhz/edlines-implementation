@@ -23,6 +23,8 @@ public:
     ChainNode *createNewChain(Direction dir);
     void addPixelToChain(ChainNode *chain, const PPoint &pixel);
     void linkChains(ChainNode *parent, ChainNode *child);
+    void pruneToLongestPath(ChainNode *head_chain);
+    int longest_chain_length(ChainNode *chain);
 
     // Getters
     ChainNode *getFirstChain() const { return first_chain; }

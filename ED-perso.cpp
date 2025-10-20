@@ -270,6 +270,10 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             current_chain = new_chain;
             exploreChain(currentNode, current_chain);
         }
+
+        // For the list of segments we only keep the longest path from this anchor. No T-junctions.
+        chain.pruneToLongestPath(anchor_chain_root);
+
         vector<Point> segment = chain.extractSegmentPixels(anchor_chain_root, minPathLen);
         if (!segment.empty())
         {
