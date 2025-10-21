@@ -27,7 +27,9 @@
 struct EDLinesConfig
 {
     static constexpr int MIN_LINE_LENGTH = 9;
-    static constexpr int BAD_PIXEL_THRESHOLD = 5;
+    static constexpr int MAX_BAD_RUN = 5;
+    static constexpr int MIN_GOOD_RUN = 2;
+    static constexpr double INITIAL_ERROR_THRESHOLD = 0.5;
     static constexpr int LONG_LINE_AUTO_ACCEPT = 80;
     static constexpr int SHORT_LINE_THRESHOLD = 25;
     static constexpr double PRECISION_ANGLE_DEG = 22.5;
@@ -55,11 +57,11 @@ struct LineSegment
     double sx, sy; // starting x & y coordinates
     double ex, ey; // ending x & y coordinates
 
-    int segmentNo;       // Edge segment that this line belongs to
-    int firstPixelIndex; // Index of the first pixel within the segment of pixels
-    int len;             // No of pixels making up the line segment
+    int segmentNo;              // Edge segment that this line belongs to
+    int segmentFirstPixelIndex; // Index of the first pixel within the segment of pixels
+    int len;                    // No of pixels making up the line segment
 
-    LineSegment(double _a, double _b, int _invert, double _sx, double _sy, double _ex, double _ey, int _segmentNo, int _firstPixelIndex, int _len)
+    LineSegment(double _a, double _b, int _invert, double _sx, double _sy, double _ex, double _ey, int _segmentNo, int _segmentFirstPixelIndex, int _len)
     {
         a = _a;
         b = _b;
@@ -69,7 +71,7 @@ struct LineSegment
         ex = _ex;
         ey = _ey;
         segmentNo = _segmentNo;
-        firstPixelIndex = _firstPixelIndex;
+        segmentFirstPixelIndex = _segmentFirstPixelIndex;
         len = _len;
     }
 };
@@ -84,7 +86,6 @@ public:
     std::vector<LS> getLines();
     int getLinesNo();
     cv::Mat getLineImage();
-    cv::Mat drawOnImage();
 
     // EDCircle uses this one
     static void SplitSegment2Lines(double *x, double *y, int noPixels, int segmentNo, std::vector<LineSegment> &lines, int min_line_len = 6, double line_error = 1.0);
@@ -105,6 +106,22 @@ private:
                                  double _max_distance_between_two_lines, double _max_error);
 
     int ComputeMinLineLength();
+    double ComputeFitError(double *x, double *y, int count,
+                           double a, double b);
+    bool findInitialLineFit(double *x, double *y, int &currentPixelOffset, int &nbPixelsRemaining,
+                            int &segmentFirstPixelIndex, double &a, double &b, double &error, int &invert);
+    int scanForGoodPixels(double *x, double *y, int currentPixelOffset, int &relIndex, int nbPixelsRemaining,
+                          double a, double b, int invert, int &lastGoodRel);
+    bool processOneLineIteration(double *x, double *y, int &currentPixelOffset, int &nbPixelsRemaining,
+                                 int &segmentFirstPixelIndex, double &a, double &b, int &invert, int segmentNo);
+    void storeLineSegment(double a, double b, int invert, double sx, double sy, double ex, double ey,
+                          int segmentNo, int segmentFirstPixelIndex, int pixelCount);
+    void updateIndicesAfterLineProcessing(int &nbPixelsRemaining, int &currentPixelOffset, int &segmentFirstPixelIndex, int len);
+    bool validateLineEndpoints(double sx, double sy, double ex, double ey);
+    int findLastValidPixel(double *x, double *y, int currentPixelOffset, int lastGoodRel, double a, double b, int invert);
+    int findFirstValidPixel(double *x, double *y, int currentPixelOffset, int len, double a, double b, int invert);
+    void refitLineWithExtendedPixels(double *x, double *y, int currentPixelOffset, int len,
+                                     double &a, double &b, int &invert);
     void SplitSegment2Lines(double *x, double *y, int noPixels, int segmentNo);
     void JoinCollinearLines();
 
