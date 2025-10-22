@@ -1,6 +1,7 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <vector>
+#include <stack>
 
 enum Direction
 {
@@ -57,14 +58,10 @@ public:
     GradOrientation get_grad_orientation();
 };
 
-class ProcessStack
+struct ProcessStack : std::stack<StackNode>
 {
-public:
-    std::vector<StackNode> nodes;
+    ProcessStack() : std::stack<StackNode>() {}
 
-    void push(const StackNode &node);
-    StackNode pop();
-    bool empty() const;
-    size_t size() const;
+    // clears the underlying stack
     void clear();
 };

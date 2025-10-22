@@ -25,7 +25,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     sigma = _sigma;
     sumFlag = _sumFlag;
     chain = Chain(image_width, image_height);
-    process_stack.reserve(image_width * image_height);
+    process_stack = ProcessStack();
     edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0));
     smoothImage = Mat(image_height, image_width, CV_8UC1);
     gradImage = Mat(image_height, image_width, CV_16SC1);
@@ -289,16 +289,17 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         chain.addPixelToChain(anchor_chain_root, anchor);
         edgeImgPointer[anchorPixelOffset] = EDGE_PIXEL;
 
-        process_stack.clear();
+        // Ensure the process stack is empty before starting
+        (void)process_stack.clear();
         if (anchor.grad_orientation == EDGE_VERTICAL)
         {
-            process_stack.push_back(StackNode(anchor, UP, 0));
-            process_stack.push_back(StackNode(anchor, DOWN, 0));
+            process_stack.push(StackNode(anchor, UP, 0));
+            process_stack.push(StackNode(anchor, DOWN, 0));
         }
         else
         {
-            process_stack.push_back(StackNode(anchor, LEFT, 0));
-            process_stack.push_back(StackNode(anchor, RIGHT, 0));
+            process_stack.push(StackNode(anchor, LEFT, 0));
+            process_stack.push(StackNode(anchor, RIGHT, 0));
         }
 
         ChainNode *current_parent = anchor_chain_root;
@@ -306,8 +307,8 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
         while (!process_stack.empty())
         {
-            StackNode currentNode = process_stack.back();
-            process_stack.pop_back();
+            StackNode currentNode = process_stack.top();
+            process_stack.pop();
 
             ChainNode *new_chain = chain.createNewChain(currentNode.node_direction);
 
@@ -462,14 +463,14 @@ void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
             StackNode up_node(current_node.node_row - 1, current_node.node_column, UP, EDGE_VERTICAL);
             int offset = up_node.get_offset(image_width);
             if (validateNode(up_node) && gradOrientationImgPointer[offset] == EDGE_VERTICAL)
-                process_stack.push_back(up_node);
+                process_stack.push(up_node);
         }
         if (current_node.node_row + 1 < image_height)
         {
             StackNode down_node(current_node.node_row + 1, current_node.node_column, DOWN, EDGE_VERTICAL);
             int offset = down_node.get_offset(image_width);
             if (validateNode(down_node) && gradOrientationImgPointer[offset] == EDGE_VERTICAL)
-                process_stack.push_back(down_node);
+                process_stack.push(down_node);
         }
     }
     else
@@ -480,14 +481,14 @@ void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
             StackNode left_node(current_node.node_row, current_node.node_column - 1, LEFT, EDGE_HORIZONTAL);
             int offset = left_node.get_offset(image_width);
             if (validateNode(left_node) && gradOrientationImgPointer[offset] == EDGE_HORIZONTAL)
-                process_stack.push_back(left_node);
+                process_stack.push(left_node);
         }
         if (current_node.node_column + 1 < image_width)
         {
             StackNode right_node(current_node.node_row, current_node.node_column + 1, RIGHT, EDGE_HORIZONTAL);
             int offset = right_node.get_offset(image_width);
             if (validateNode(right_node) && gradOrientationImgPointer[offset] == EDGE_HORIZONTAL)
-                process_stack.push_back(right_node);
+                process_stack.push(right_node);
         }
     }
 }

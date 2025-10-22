@@ -51,33 +51,15 @@ int StackNode::get_offset(int image_width)
     return node_row * image_width + node_column;
 }
 
-void ProcessStack::push(const StackNode &node)
+GradOrientation StackNode::get_grad_orientation()
 {
-    nodes.push_back(node);
-}
-
-StackNode ProcessStack::pop()
-{
-    StackNode node = nodes.back();
-    nodes.pop_back();
-    return node;
-}
-
-bool ProcessStack::empty() const
-{
-    return nodes.empty();
-}
-
-size_t ProcessStack::size() const
-{
-    return nodes.size();
+    return (node_direction == LEFT || node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
 }
 
 void ProcessStack::clear()
 {
-    nodes.clear();
-}
-GradOrientation StackNode::get_grad_orientation()
-{
-    return (node_direction == LEFT || node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
+    while (!this->empty())
+    {
+        this->pop();
+    }
 }

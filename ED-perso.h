@@ -105,7 +105,7 @@ private:
     cv::Mat gradImage;
 
     GradOrientation *gradOrientationImgPointer; // pointer to direction image data. Used only in constructor for computing edges and segments
-    std::vector<StackNode> process_stack;       // stack for processing edge pixels during anchor joining
+    ProcessStack process_stack;                 // stack for processing edge pixels during anchor joining
     short *gradImgPointer;                      // pointer to gradient image data
 
     int gradThresh;   // gradient threshold
