@@ -32,7 +32,6 @@ public:
 
     // Getters
     Chain *getFirstChain() const { return first_chain_root; }
-    int getTotalChains() const { return total_chains; }
     int getTotalPixels() const { return total_pixels; }
 
     // Segment extraction
@@ -40,7 +39,6 @@ public:
 
 private:
     Chain *first_chain_root; // Root of the chain tree
-    int total_chains;        // Count of chains
     int total_pixels;        // Total pixels across all chains
     int image_width;
     int image_height;

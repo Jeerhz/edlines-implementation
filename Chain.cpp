@@ -28,7 +28,6 @@ Chain::~Chain()
 
 ChainTree::ChainTree(int image_width, int image_height)
     : first_chain_root(nullptr),
-      total_chains(0),
       total_pixels(0),
       image_width(image_width),
       image_height(image_height)
@@ -38,7 +37,6 @@ ChainTree::ChainTree(int image_width, int image_height)
 
 ChainTree::ChainTree()
     : first_chain_root(nullptr),
-      total_chains(0),
       total_pixels(0),
       image_width(0),
       image_height(0),
@@ -54,7 +52,6 @@ ChainTree::~ChainTree()
         delete first_chain_root;
         first_chain_root = nullptr;
     }
-    total_chains = 0;
     total_pixels = 0;
 }
 
@@ -71,7 +68,6 @@ Chain *ChainTree::createNewChain(Direction dir)
         first_chain_root = new_chain;
     }
 
-    total_chains++;
     return new_chain;
 }
 
