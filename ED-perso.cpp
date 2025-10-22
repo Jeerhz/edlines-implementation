@@ -55,7 +55,6 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     DEBUG_LOG("--- Step 4: Joining Anchor Points ---");
     JoinAnchorPointsUsingSortedAnchors();
     DEBUG_LOG("Anchor joining completed. ");
-    DEBUG_LOG("Total segments created: " << segmentNb);
 
     delete[] gradOrientationImgPointer;
     DEBUG_LOG("=== ED Constructor Completed ===\n");
@@ -81,7 +80,6 @@ ED::ED(const ED &cpyObj)
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
     segmentPoints = cpyObj.segmentPoints;
-    segmentNb = cpyObj.segmentNb;
     DEBUG_LOG("=== ED Copy Constructor Completed ===\n");
 }
 
@@ -112,11 +110,6 @@ Mat ED::getGradImage()
     Mat result8UC1;
     convertScaleAbs(gradImage, result8UC1);
     return result8UC1;
-}
-
-int ED::getSegmentNo()
-{
-    return segmentNb;
 }
 
 int ED::getAnchorNo()
@@ -246,6 +239,18 @@ PPoint ED::getPPoint(int offset)
                   (edgeImgPointer[offset] == EDGE_PIXEL));
 }
 
+/**
+ * @brief Sorts anchor pixels by their gradient values in increasing order.
+ * @return int* Pointer to a dynamically allocated array A containing the offsets of anchor pixels,
+ *         sorted by gradient value. The caller is responsible for deleting this array.
+ *
+ * @note
+ * - A[i] is the offset of the i-th anchor pixel in the image (sorted by gradient value).
+ * - To get the (row, column) coordinates of the pixel from A[i]:
+ *      int offset = A[i];
+ *      int row = offset / image_width;
+ *      int col = offset % image_width;
+ */
 int *ED::sortAnchorsByGradValue()
 {
     int *A = new int[anchorPoints.size()];
@@ -334,7 +339,6 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         if (!segment.empty())
         {
             segmentPoints.push_back(segment);
-            segmentNb++;
         }
     }
 

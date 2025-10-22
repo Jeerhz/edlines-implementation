@@ -10,14 +10,6 @@
 #define DEBUG_LOG(msg) std::cout << "[DEBUG] " << msg << std::endl
 
 class ED
-/**
- * @class ED
- * @brief Edge Detection class for extracting edge segments and anchor points from images.
- *
- * Provides methods for edge detection, anchor point extraction, segment retrieval, and visualization.
- *
- * @param sigma The sigma value used in the Gaussian smoothing (blurring) step (protected).
- */
 {
 
 public:
@@ -42,36 +34,14 @@ public:
     PPoint getPPoint(int offset);
 
 protected:
-    int image_width;  // width of source image
-    int image_height; // height of source image
-    uchar *srcImgPointer;
-    /**
-     * @brief Stores the points of detected line segments.
-     *
-     * This is a two-dimensional vector where:
-     * - The outer vector represents a collection of line segments.
-     * - Each inner vector contains the sequence of cv::Point objects that define a single line segment.
-     *
-     * For example, segmentPoints[i] holds all the points belonging to the i-th detected segment.
-     */
+    int image_width;      // width of source image
+    int image_height;     // height of source image
+    uchar *srcImgPointer; // pointer to source image data
     std::vector<std::vector<cv::Point>> segmentPoints;
     double sigma; // Gaussian sigma
     cv::Mat smoothImage;
     uchar *edgeImgPointer;   // pointer to edge image data
-    uchar *smoothImgPointer; // pointer to smoothed image data
-    /**
-     * @brief Number of detected line segments.
-     *
-     * Represents the total count of line segments identified by the EDLines algorithm.
-     */
-    int segmentNb;
-    /**
-     * @brief Minimum allowed length for a detected path or line segment.
-     *
-     * This variable specifies the shortest length (in pixels or units, depending on context)
-     * that a path or line segment must have to be considered valid during processing.
-     * Paths shorter than this value may be ignored or filtered out.
-     */
+    uchar *smoothImgPointer; // pointer to smoothed image data (gaussian applied)
     int minPathLen;
     cv::Mat srcImage;
 
@@ -80,18 +50,6 @@ private:
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
     void exploreChain(StackNode &current_node, Chain *current_chain);
-    /**
-     * @brief Sorts anchor pixels by their gradient values in increasing order.
-     * @return int* Pointer to a dynamically allocated array A containing the offsets of anchor pixels,
-     *         sorted by gradient value. The caller is responsible for deleting this array.
-     *
-     * @note
-     * - A[i] is the offset of the i-th anchor pixel in the image (sorted by gradient value).
-     * - To get the (row, column) coordinates of the pixel from A[i]:
-     *      int offset = A[i];
-     *      int row = offset / image_width;
-     *      int col = offset % image_width;
-     */
     int *sortAnchorsByGradValue();
 
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);
