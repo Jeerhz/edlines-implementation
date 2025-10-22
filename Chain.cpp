@@ -4,8 +4,30 @@
 
 using namespace cv;
 
+Chain::Chain()
+{
+    left_or_up_childChain = nullptr;
+    right_or_down_childChain = nullptr;
+    direction = UNDEFINED;
+}
+
+Chain::~Chain()
+{
+    // Recursively delete child chains so deleting the root cleans everything.
+    if (left_or_up_childChain != nullptr)
+    {
+        delete left_or_up_childChain;
+        left_or_up_childChain = nullptr;
+    }
+    if (right_or_down_childChain != nullptr)
+    {
+        delete right_or_down_childChain;
+        right_or_down_childChain = nullptr;
+    }
+}
+
 ChainTree::ChainTree(int image_width, int image_height)
-    : first_chain_node(nullptr),
+    : first_chain_root(nullptr),
       total_chains(0),
       total_pixels(0),
       image_width(image_width),
@@ -15,7 +37,7 @@ ChainTree::ChainTree(int image_width, int image_height)
 }
 
 ChainTree::ChainTree()
-    : first_chain_node(nullptr),
+    : first_chain_root(nullptr),
       total_chains(0),
       total_pixels(0),
       image_width(0),
@@ -26,33 +48,27 @@ ChainTree::ChainTree()
 
 ChainTree::~ChainTree()
 {
-    deleteChainTree(first_chain_node);
-}
-
-void ChainTree::deleteChainTree(Chain *node)
-{
-    if (node == nullptr)
-        return;
-
-    // Recursively delete both children
-    deleteChainTree(node->left_or_up_childChain);
-    deleteChainTree(node->right_or_down_childChain);
-
-    delete node;
+    // Rely on Chain::~Chain to recursively delete children.
+    if (first_chain_root != nullptr)
+    {
+        delete first_chain_root;
+        first_chain_root = nullptr;
+    }
+    total_chains = 0;
+    total_pixels = 0;
 }
 
 Chain *ChainTree::createNewChain(Direction dir)
 {
     Chain *new_chain = new Chain();
     new_chain->direction = dir;
-    new_chain->length = 0;
     new_chain->left_or_up_childChain = nullptr;
     new_chain->right_or_down_childChain = nullptr;
 
     // If this is the first chain, set it as root
-    if (first_chain_node == nullptr)
+    if (first_chain_root == nullptr)
     {
-        first_chain_node = new_chain;
+        first_chain_root = new_chain;
     }
 
     total_chains++;
@@ -70,7 +86,6 @@ void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
     }
 
     chain->pixels.push_back(pixel);
-    chain->length++;
     total_pixels++;
 }
 
@@ -88,63 +103,45 @@ void ChainTree::setRightOrDownChild(Chain *parent, Chain *child)
     parent->right_or_down_childChain = child;
 }
 
-int ChainTree::longest_chain_length(Chain *chain_node)
+int Chain::longest_chain_length()
 {
-    if (chain_node == nullptr)
-        return 0;
 
-    int left_or_up_length = longest_chain_length(chain_node->left_or_up_childChain);
-    int right_or_down_length = longest_chain_length(chain_node->right_or_down_childChain);
+    int left_or_up_length = 0;
+    int right_or_down_length = 0;
+    if (left_or_up_childChain != nullptr)
+    {
+        left_or_up_length = left_or_up_childChain->longest_chain_length();
+    }
+    if (right_or_down_childChain != nullptr)
+    {
+        right_or_down_length = right_or_down_childChain->longest_chain_length();
+    }
 
-    return chain_node->length + std::max(left_or_up_length, right_or_down_length);
+    return pixels.size() + std::max(left_or_up_length, right_or_down_length);
 }
 
-void ChainTree::pruneToLongestPath(Chain *head_chain_node)
+void Chain::pruneToLongestPath()
 {
-    if (head_chain_node == nullptr)
+    // If left or right children do not exist, we're done
+    if (left_or_up_childChain == nullptr || right_or_down_childChain == nullptr)
         return;
 
-    Chain *current = head_chain_node;
+    int left_length = left_or_up_childChain->longest_chain_length();
+    int right_length = right_or_down_childChain->longest_chain_length();
 
-    while (current != nullptr)
+    if (left_length >= right_length)
     {
-        Chain *left_or_up_child = current->left_or_up_childChain;
-        Chain *right_or_down_child = current->right_or_down_childChain;
-
-        // If no children, we're done
-        if (left_or_up_child == nullptr && right_or_down_child == nullptr)
-            break;
-
-        // If only one child exists, keep it and continue
-        if (left_or_up_child == nullptr)
-        {
-            current = right_or_down_child;
-            continue;
-        }
-        if (right_or_down_child == nullptr)
-        {
-            current = left_or_up_child;
-            continue;
-        }
-
-        // Both children exist - keep the longer path
-        int left_length = longest_chain_length(left_or_up_child);
-        int right_length = longest_chain_length(right_or_down_child);
-
-        if (left_length >= right_length)
-        {
-            // Keep left/up child, delete right/down subtree
-            deleteChainTree(right_or_down_child);
-            current->right_or_down_childChain = nullptr;
-            current = left_or_up_child;
-        }
-        else
-        {
-            // Keep right/down child, delete left/up subtree
-            deleteChainTree(left_or_up_child);
-            current->left_or_up_childChain = nullptr;
-            current = right_or_down_child;
-        }
+        // Keep left/up child, delete right/down subtree
+        delete right_or_down_childChain;
+        right_or_down_childChain = nullptr;
+        left_or_up_childChain->pruneToLongestPath();
+    }
+    else
+    {
+        // Keep right/down child, delete left/up subtree
+        delete left_or_up_childChain;
+        left_or_up_childChain = nullptr;
+        right_or_down_childChain->pruneToLongestPath();
     }
 }
 
