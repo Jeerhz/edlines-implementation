@@ -57,6 +57,9 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     DEBUG_LOG("Anchor joining completed. ");
 
     delete[] gradOrientationImgPointer;
+    // delete[] smoothImgPointer;
+    // delete[] gradImgPointer;
+    // delete[] edgeImgPointer;
     DEBUG_LOG("=== ED Constructor Completed ===\n");
 }
 
