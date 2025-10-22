@@ -241,50 +241,61 @@ PPoint ED::getPPoint(int offset)
 
 int *ED::sortAnchorsByGradValue()
 {
-    // If there are no anchors, return nullptr (caller safely deletes nullptr).
-    if (anchorPoints.empty())
-        return nullptr;
+    int SIZE = 128 * 256;
+    int *C = new int[SIZE];
+    memset(C, 0, sizeof(int) * SIZE);
 
-    // Determine maximum gradient among anchors to size the buckets.
-    int maxGrad = 0;
-    for (const Point &p : anchorPoints)
+    // Count the number of grad values
+    for (int i = 1; i < image_height - 1; i++)
     {
-        int offset = p.y * image_width + p.x;
-        int g = static_cast<int>(gradImgPointer[offset]);
-        if (g > maxGrad)
-            maxGrad = g;
+        for (int j = 1; j < image_width - 1; j++)
+        {
+            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                continue;
+
+            int grad = gradImgPointer[i * image_width + j];
+            C[grad]++;
+        }
     }
 
-    // Prepare counting buckets [0..maxGrad]
-    std::vector<int> counts(maxGrad + 1, 0);
-    for (const Point &p : anchorPoints)
+    // Compute indices
+    for (int i = 1; i < SIZE; i++)
+        C[i] += C[i - 1];
+
+    int noAnchors = C[SIZE - 1];
+    int *A = new int[noAnchors];
+    memset(A, 0, sizeof(int) * noAnchors);
+
+    for (int i = 1; i < image_height - 1; i++)
     {
-        int offset = p.y * image_width + p.x;
-        int g = static_cast<int>(gradImgPointer[offset]);
-        // Guard against negative gradients just in case
-        if (g < 0)
-            g = 0;
-        ++counts[g];
+        for (int j = 1; j < image_width - 1; j++)
+        {
+            if (edgeImgPointer[i * image_width + j] != ANCHOR_PIXEL)
+                continue;
+
+            int grad = gradImgPointer[i * image_width + j];
+            int index = --C[grad];
+            A[index] = i * image_width + j; // anchor's offset
+        }
     }
 
-    // Convert counts to starting positions (prefix sums)
-    std::vector<int> pos(maxGrad + 1, 0);
-    for (int i = 1; i <= maxGrad; ++i)
-        pos[i] = pos[i - 1] + counts[i - 1];
-
-    // Allocate result array and place anchors by increasing gradient
-    int *A = new int[anchorPoints.size()];
-    for (const Point &p : anchorPoints)
-    {
-        int offset = p.y * image_width + p.x;
-        int g = static_cast<int>(gradImgPointer[offset]);
-        if (g < 0)
-            g = 0;
-        int index = pos[g]++;
-        A[index] = offset;
-    }
+    delete[] C;
 
     return A;
+}
+
+void setLeftOrUpChildToChain(Chain *parent, Chain *child)
+{
+    if (parent == nullptr || child == nullptr)
+        return;
+    parent->left_or_up_childChain = child;
+}
+
+void setRightOrDownChildToChain(Chain *parent, Chain *child)
+{
+    if (parent == nullptr || child == nullptr)
+        return;
+    parent->right_or_down_childChain = child;
 }
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
@@ -332,12 +343,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
             if (first_child)
             {
-                chain_tree.setLeftOrUpChild(current_parent, new_chain);
+                setLeftOrUpChildToChain(current_parent, new_chain);
                 first_child = false;
             }
             else
             {
-                chain_tree.setRightOrDownChild(current_parent, new_chain);
+                setRightOrDownChildToChain(current_parent, new_chain);
                 first_child = true;
                 current_parent = new_chain; // Move to next level
             }

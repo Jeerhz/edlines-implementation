@@ -27,8 +27,6 @@ public:
     // Chain management
     Chain *createNewChain(Direction dir);
     void addPixelToChain(Chain *chain, const PPoint &pixel);
-    void setLeftOrUpChild(Chain *parent, Chain *child);
-    void setRightOrDownChild(Chain *parent, Chain *child);
 
     // Getters
     Chain *getFirstChain() const { return first_chain_root; }
