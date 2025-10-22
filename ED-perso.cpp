@@ -239,36 +239,49 @@ PPoint ED::getPPoint(int offset)
                   (edgeImgPointer[offset] == EDGE_PIXEL));
 }
 
-/**
- * @brief Sorts anchor pixels by their gradient values in increasing order.
- * @return int* Pointer to a dynamically allocated array A containing the offsets of anchor pixels,
- *         sorted by gradient value. The caller is responsible for deleting this array.
- *
- * @note
- * - A[i] is the offset of the i-th anchor pixel in the image (sorted by gradient value).
- * - To get the (row, column) coordinates of the pixel from A[i]:
- *      int offset = A[i];
- *      int row = offset / image_width;
- *      int col = offset % image_width;
- */
 int *ED::sortAnchorsByGradValue()
 {
-    int *A = new int[anchorPoints.size()];
-    std::vector<std::pair<int, int>> grad_anchor_pairs;
-    grad_anchor_pairs.reserve(anchorPoints.size());
+    // If there are no anchors, return nullptr (caller safely deletes nullptr).
+    if (anchorPoints.empty())
+        return nullptr;
 
-    for (size_t i = 0; i < anchorPoints.size(); ++i)
+    // Determine maximum gradient among anchors to size the buckets.
+    int maxGrad = 0;
+    for (const Point &p : anchorPoints)
     {
-        Point &p = anchorPoints[i];
         int offset = p.y * image_width + p.x;
-        grad_anchor_pairs.emplace_back(gradImgPointer[offset], offset);
+        int g = static_cast<int>(gradImgPointer[offset]);
+        if (g > maxGrad)
+            maxGrad = g;
     }
 
-    std::sort(grad_anchor_pairs.begin(), grad_anchor_pairs.end());
-
-    for (size_t i = 0; i < grad_anchor_pairs.size(); ++i)
+    // Prepare counting buckets [0..maxGrad]
+    std::vector<int> counts(maxGrad + 1, 0);
+    for (const Point &p : anchorPoints)
     {
-        A[i] = grad_anchor_pairs[i].second;
+        int offset = p.y * image_width + p.x;
+        int g = static_cast<int>(gradImgPointer[offset]);
+        // Guard against negative gradients just in case
+        if (g < 0)
+            g = 0;
+        ++counts[g];
+    }
+
+    // Convert counts to starting positions (prefix sums)
+    std::vector<int> pos(maxGrad + 1, 0);
+    for (int i = 1; i <= maxGrad; ++i)
+        pos[i] = pos[i - 1] + counts[i - 1];
+
+    // Allocate result array and place anchors by increasing gradient
+    int *A = new int[anchorPoints.size()];
+    for (const Point &p : anchorPoints)
+    {
+        int offset = p.y * image_width + p.x;
+        int g = static_cast<int>(gradImgPointer[offset]);
+        if (g < 0)
+            g = 0;
+        int index = pos[g]++;
+        A[index] = offset;
     }
 
     return A;
