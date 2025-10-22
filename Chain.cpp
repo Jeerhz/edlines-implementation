@@ -71,7 +71,7 @@ Chain *ChainTree::createNewChain(Direction dir)
     return new_chain;
 }
 
-void addPixelToChain(Chain *chain, const PPoint &pixel)
+void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
 {
     if (chain == nullptr)
         return;
@@ -83,20 +83,6 @@ void addPixelToChain(Chain *chain, const PPoint &pixel)
 
     chain->pixels.push_back(pixel);
     total_pixels++;
-}
-
-void setLeftOrUpChild(Chain *parent, Chain *child)
-{
-    if (parent == nullptr || child == nullptr)
-        return;
-    parent->left_or_up_childChain = child;
-}
-
-void setRightOrDownChild(Chain *parent, Chain *child)
-{
-    if (parent == nullptr || child == nullptr)
-        return;
-    parent->right_or_down_childChain = child;
 }
 
 int Chain::longest_chain_length()

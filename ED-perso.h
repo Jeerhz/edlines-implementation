@@ -55,8 +55,6 @@ private:
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);
     StackNode getNextNode(StackNode &current_node);
     bool validateNode(StackNode &node);
-    void setLeftOrUpChildToChain(Chain *parent, Chain *child);
-    void setRightOrDownChildToChain(Chain *parent, Chain *child);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;
