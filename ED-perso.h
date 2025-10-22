@@ -79,7 +79,7 @@ private:
     void ComputeGradient();
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
-    void exploreChain(StackNode &current_node, ChainNode *current_chain);
+    void exploreChain(StackNode &current_node, Chain *current_chain);
     /**
      * @brief Sorts anchor pixels by their gradient values in increasing order.
      * @return int* Pointer to a dynamically allocated array A containing the offsets of anchor pixels,
@@ -112,5 +112,5 @@ private:
     int anchorThresh; // anchor point threshold
     int scanInterval;
     bool sumFlag; // flag for using sum of terms to compute gradient magnitude
-    Chain chain;
+    ChainTree chain_tree;
 };

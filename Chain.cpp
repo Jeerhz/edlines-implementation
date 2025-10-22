@@ -4,7 +4,7 @@
 
 using namespace cv;
 
-Chain::Chain(int image_width, int image_height)
+ChainTree::ChainTree(int image_width, int image_height)
     : first_chain_node(nullptr),
       total_chains(0),
       total_pixels(0),
@@ -14,7 +14,7 @@ Chain::Chain(int image_width, int image_height)
     max_pixels = image_width * image_height;
 }
 
-Chain::Chain()
+ChainTree::ChainTree()
     : first_chain_node(nullptr),
       total_chains(0),
       total_pixels(0),
@@ -24,30 +24,30 @@ Chain::Chain()
 {
 }
 
-Chain::~Chain()
+ChainTree::~ChainTree()
 {
     deleteChainTree(first_chain_node);
 }
 
-void Chain::deleteChainTree(ChainNode *node)
+void ChainTree::deleteChainTree(Chain *node)
 {
     if (node == nullptr)
         return;
 
     // Recursively delete both children
-    deleteChainTree(node->left_or_up_childNode);
-    deleteChainTree(node->right_or_down_childNode);
+    deleteChainTree(node->left_or_up_childChain);
+    deleteChainTree(node->right_or_down_childChain);
 
     delete node;
 }
 
-ChainNode *Chain::createNewChain(Direction dir)
+Chain *ChainTree::createNewChain(Direction dir)
 {
-    ChainNode *new_chain = new ChainNode();
+    Chain *new_chain = new Chain();
     new_chain->direction = dir;
     new_chain->length = 0;
-    new_chain->left_or_up_childNode = nullptr;
-    new_chain->right_or_down_childNode = nullptr;
+    new_chain->left_or_up_childChain = nullptr;
+    new_chain->right_or_down_childChain = nullptr;
 
     // If this is the first chain, set it as root
     if (first_chain_node == nullptr)
@@ -59,7 +59,7 @@ ChainNode *Chain::createNewChain(Direction dir)
     return new_chain;
 }
 
-void Chain::addPixelToChain(ChainNode *chain, const PPoint &pixel)
+void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
 {
     if (chain == nullptr)
         return;
@@ -74,42 +74,42 @@ void Chain::addPixelToChain(ChainNode *chain, const PPoint &pixel)
     total_pixels++;
 }
 
-void Chain::setLeftOrUpChild(ChainNode *parent, ChainNode *child)
+void ChainTree::setLeftOrUpChild(Chain *parent, Chain *child)
 {
     if (parent == nullptr || child == nullptr)
         return;
-    parent->left_or_up_childNode = child;
+    parent->left_or_up_childChain = child;
 }
 
-void Chain::setRightOrDownChild(ChainNode *parent, ChainNode *child)
+void ChainTree::setRightOrDownChild(Chain *parent, Chain *child)
 {
     if (parent == nullptr || child == nullptr)
         return;
-    parent->right_or_down_childNode = child;
+    parent->right_or_down_childChain = child;
 }
 
-int Chain::longest_chain_length(ChainNode *chain_node)
+int ChainTree::longest_chain_length(Chain *chain_node)
 {
     if (chain_node == nullptr)
         return 0;
 
-    int left_or_up_length = longest_chain_length(chain_node->left_or_up_childNode);
-    int right_or_down_length = longest_chain_length(chain_node->right_or_down_childNode);
+    int left_or_up_length = longest_chain_length(chain_node->left_or_up_childChain);
+    int right_or_down_length = longest_chain_length(chain_node->right_or_down_childChain);
 
     return chain_node->length + std::max(left_or_up_length, right_or_down_length);
 }
 
-void Chain::pruneToLongestPath(ChainNode *head_chain_node)
+void ChainTree::pruneToLongestPath(Chain *head_chain_node)
 {
     if (head_chain_node == nullptr)
         return;
 
-    ChainNode *current = head_chain_node;
+    Chain *current = head_chain_node;
 
     while (current != nullptr)
     {
-        ChainNode *left_or_up_child = current->left_or_up_childNode;
-        ChainNode *right_or_down_child = current->right_or_down_childNode;
+        Chain *left_or_up_child = current->left_or_up_childChain;
+        Chain *right_or_down_child = current->right_or_down_childChain;
 
         // If no children, we're done
         if (left_or_up_child == nullptr && right_or_down_child == nullptr)
@@ -135,20 +135,20 @@ void Chain::pruneToLongestPath(ChainNode *head_chain_node)
         {
             // Keep left/up child, delete right/down subtree
             deleteChainTree(right_or_down_child);
-            current->right_or_down_childNode = nullptr;
+            current->right_or_down_childChain = nullptr;
             current = left_or_up_child;
         }
         else
         {
             // Keep right/down child, delete left/up subtree
             deleteChainTree(left_or_up_child);
-            current->left_or_up_childNode = nullptr;
+            current->left_or_up_childChain = nullptr;
             current = right_or_down_child;
         }
     }
 }
 
-void Chain::extractPixelsRecursive(ChainNode *node, std::vector<cv::Point> &result, bool &first_chain)
+void ChainTree::extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, bool &first_chain)
 {
     if (node == nullptr)
         return;
@@ -166,17 +166,17 @@ void Chain::extractPixelsRecursive(ChainNode *node, std::vector<cv::Point> &resu
     first_chain = false;
 
     // Continue with the child that exists (after pruning, only one path remains)
-    if (node->left_or_up_childNode != nullptr)
+    if (node->left_or_up_childChain != nullptr)
     {
-        extractPixelsRecursive(node->left_or_up_childNode, result, first_chain);
+        extractPixelsRecursive(node->left_or_up_childChain, result, first_chain);
     }
-    else if (node->right_or_down_childNode != nullptr)
+    else if (node->right_or_down_childChain != nullptr)
     {
-        extractPixelsRecursive(node->right_or_down_childNode, result, first_chain);
+        extractPixelsRecursive(node->right_or_down_childChain, result, first_chain);
     }
 }
 
-std::vector<cv::Point> Chain::extractSegmentPixels(ChainNode *chain_head, int min_length)
+std::vector<cv::Point> ChainTree::extractSegmentPixels(Chain *chain_head, int min_length)
 {
     std::vector<cv::Point> result;
 

@@ -24,7 +24,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     minPathLen = _minPathLen;
     sigma = _sigma;
     sumFlag = _sumFlag;
-    chain = Chain(image_width, image_height);
+    chain_tree = ChainTree(image_width, image_height);
     process_stack = ProcessStack();
     edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0));
     smoothImage = Mat(image_height, image_width, CV_8UC1);
@@ -284,9 +284,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         if (edgeImgPointer[anchorPixelOffset] == EDGE_PIXEL)
             continue;
 
-        ChainNode *anchor_chain_root = chain.createNewChain(
+        Chain *anchor_chain_root = chain_tree.createNewChain(
             anchor.grad_orientation == EDGE_VERTICAL ? UP : LEFT);
-        chain.addPixelToChain(anchor_chain_root, anchor);
+        chain_tree.addPixelToChain(anchor_chain_root, anchor);
         edgeImgPointer[anchorPixelOffset] = EDGE_PIXEL;
 
         // Ensure the process stack is empty before starting
@@ -302,7 +302,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             process_stack.push(StackNode(anchor, RIGHT, 0));
         }
 
-        ChainNode *current_parent = anchor_chain_root;
+        Chain *current_parent = anchor_chain_root;
         bool first_child = true;
 
         while (!process_stack.empty())
@@ -310,16 +310,16 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             StackNode currentNode = process_stack.top();
             process_stack.pop();
 
-            ChainNode *new_chain = chain.createNewChain(currentNode.node_direction);
+            Chain *new_chain = chain_tree.createNewChain(currentNode.node_direction);
 
             if (first_child)
             {
-                chain.setLeftOrUpChild(current_parent, new_chain);
+                chain_tree.setLeftOrUpChild(current_parent, new_chain);
                 first_child = false;
             }
             else
             {
-                chain.setRightOrDownChild(current_parent, new_chain);
+                chain_tree.setRightOrDownChild(current_parent, new_chain);
                 first_child = true;
                 current_parent = new_chain; // Move to next level
             }
@@ -328,9 +328,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         }
 
         // Prune to keep only the longest path
-        chain.pruneToLongestPath(anchor_chain_root);
+        chain_tree.pruneToLongestPath(anchor_chain_root);
 
-        vector<Point> segment = chain.extractSegmentPixels(anchor_chain_root, minPathLen);
+        vector<Point> segment = chain_tree.extractSegmentPixels(anchor_chain_root, minPathLen);
         if (!segment.empty())
         {
             segmentPoints.push_back(segment);
@@ -432,7 +432,7 @@ bool ED::validateNode(StackNode &node)
     return !(is_edge_pixel || below_threshold);
 }
 
-void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
+void ED::exploreChain(StackNode &current_node, Chain *current_chain)
 {
     bool is_horizontal = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT);
 
@@ -446,7 +446,7 @@ void ED::exploreChain(StackNode &current_node, ChainNode *current_chain)
         cleanUpSurroundingAnchorPixels(current_node);
 
         PPoint pixel = getPPoint(current_node.get_offset(image_width));
-        chain.addPixelToChain(current_chain, pixel);
+        chain_tree.addPixelToChain(current_chain, pixel);
 
         StackNode next_node = getNextNode(current_node);
         if (!validateNode(next_node))

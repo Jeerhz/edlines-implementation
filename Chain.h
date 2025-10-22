@@ -2,59 +2,59 @@
 #include <opencv2/opencv.hpp>
 #include "Stack.h"
 
-struct ChainNode
+struct Chain
 {
-    std::vector<PPoint> pixels;         // Pixels in this chain segment
-    ChainNode *left_or_up_childNode;    // Pointer to left/up child chain
-    ChainNode *right_or_down_childNode; // Pointer to right/down child chain
-    Direction direction;                // Direction of this chain
-    int length;                         // Number of pixels in this chain
+    std::vector<PPoint> pixels;      // Pixels in this chain segment
+    Chain *left_or_up_childChain;    // Pointer to left/up child chain
+    Chain *right_or_down_childChain; // Pointer to right/down child chain
+    Direction direction;             // Direction of this chain
+    int length;                      // Number of pixels in this chain
 
-    ChainNode()
-        : left_or_up_childNode(nullptr),
-          right_or_down_childNode(nullptr),
+    Chain()
+        : left_or_up_childChain(nullptr),
+          right_or_down_childChain(nullptr),
           direction(UNDEFINED),
           length(0)
     {
     }
 };
 
-class Chain
+class ChainTree
 {
 public:
-    Chain(int image_width, int image_height);
-    Chain();
-    ~Chain();
+    ChainTree(int image_width, int image_height);
+    ChainTree();
+    ~ChainTree();
 
     // Chain management
-    ChainNode *createNewChain(Direction dir);
-    void addPixelToChain(ChainNode *chain, const PPoint &pixel);
-    void setLeftOrUpChild(ChainNode *parent, ChainNode *child);
-    void setRightOrDownChild(ChainNode *parent, ChainNode *child);
+    Chain *createNewChain(Direction dir);
+    void addPixelToChain(Chain *chain, const PPoint &pixel);
+    void setLeftOrUpChild(Chain *parent, Chain *child);
+    void setRightOrDownChild(Chain *parent, Chain *child);
 
     // Tree traversal and analysis
-    void pruneToLongestPath(ChainNode *head_chain);
-    int longest_chain_length(ChainNode *chain);
+    void pruneToLongestPath(Chain *head_chain);
+    int longest_chain_length(Chain *chain);
 
     // Getters
-    ChainNode *getFirstChain() const { return first_chain_node; }
+    Chain *getFirstChain() const { return first_chain_node; }
     int getTotalChains() const { return total_chains; }
     int getTotalPixels() const { return total_pixels; }
 
     // Segment extraction
-    std::vector<cv::Point> extractSegmentPixels(ChainNode *chain_head, int min_length);
+    std::vector<cv::Point> extractSegmentPixels(Chain *chain_head, int min_length);
 
 private:
-    ChainNode *first_chain_node; // Root of the chain tree
-    int total_chains;            // Count of chains
-    int total_pixels;            // Total pixels across all chains
+    Chain *first_chain_node; // Root of the chain tree
+    int total_chains;        // Count of chains
+    int total_pixels;        // Total pixels across all chains
     int image_width;
     int image_height;
     int max_pixels;
 
     // Helper for recursive deletion
-    void deleteChainTree(ChainNode *node);
+    void deleteChainTree(Chain *node);
 
     // Helper for extracting pixels along longest path
-    void extractPixelsRecursive(ChainNode *node, std::vector<cv::Point> &result, bool &first_chain);
+    void extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, bool &first_chain);
 };
