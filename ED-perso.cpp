@@ -435,14 +435,15 @@ StackNode ED::getNextNode(StackNode &current_node)
             neighbor_col >= 0 && neighbor_col < image_width)
         {
             int edge_val = edgeImgPointer[neighbor_row * image_width + neighbor_col];
-            if (edge_val == ANCHOR_PIXEL)
+            // join if anchor or edge pixel found
+            if (edge_val == ANCHOR_PIXEL || edge_val == EDGE_PIXEL)
             {
                 return StackNode(neighbor_row, neighbor_col, current_node_direction, current_node.grad_orientation);
             }
         }
     }
 
-    // If no anchor found, find pixel with maximum gradient
+    // If no anchor/edge found, find pixel with maximum gradient
     int max_gradient = -1, max_gradient_neighbor_idx = -1;
     for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
     {
