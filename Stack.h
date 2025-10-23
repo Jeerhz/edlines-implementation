@@ -37,7 +37,7 @@ struct PPoint : public cv::Point
     int col;
     GradOrientation grad_orientation;
 
-    int get_offset(int image_width, int image_height);
+    int get_offset(int image_width, int image_height) const;
 };
 
 class StackNode

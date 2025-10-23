@@ -126,28 +126,6 @@ vector<Point> ED::getAnchorPoints()
     return anchorPoints;
 }
 
-vector<vector<Point>> ED::getSegments()
-{
-    return segmentPoints;
-}
-
-vector<vector<Point>> ED::getSortedSegments()
-{
-    sort(segmentPoints.begin(), segmentPoints.end(),
-         [](const vector<Point> &a, const vector<Point> &b)
-         { return a.size() > b.size(); });
-    return segmentPoints;
-}
-
-Mat ED::drawParticularSegments(vector<int> list)
-{
-    Mat segmentsImage = Mat(edgeImage.size(), edgeImage.type(), Scalar(0));
-    for (int idx : list)
-        for (const Point &p : segmentPoints[idx])
-            segmentsImage.at<uchar>(p) = 255;
-    return segmentsImage;
-}
-
 void ED::ComputeGradient()
 {
     DEBUG_LOG("ComputeGradient() started");
@@ -325,6 +303,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
     for (int k = anchorNb - 1; k >= 0; k--)
     {
         int anchorPixelOffset = SortedAnchors[k];
+        int nb_processed_stack_node = 0;
         PPoint anchor = getPPoint(anchorPixelOffset);
 
         // Skip if already processed
@@ -354,6 +333,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
         while (!process_stack.empty())
         {
+            nb_processed_stack_node++;
             StackNode currentNode = process_stack.top();
             process_stack.pop();
 
@@ -476,6 +456,13 @@ bool ED::validateNode(StackNode &node)
     return !(is_edge_pixel || below_threshold);
 }
 
+bool validateChainLength(Chain *chain, int min_length)
+{
+    if (chain == nullptr)
+        return false;
+    return (chain->pixels.size() >= min_length);
+}
+
 /**
  * Explore and grow an edge chain starting from current_node by following
  * consecutive pixels whose gradient orientation matches the first node direction.
@@ -506,6 +493,13 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
             break;
 
         current_node = next_node;
+    }
+
+    if (!validateChainLength(current_chain, minPathLen))
+    {
+        for (const PPoint &p : current_chain->pixels)
+            edgeImgPointer[p.get_offset(image_width, image_height)] = 0; // Reset to non-edge
+        return;
     }
 
     if (is_horizontal)

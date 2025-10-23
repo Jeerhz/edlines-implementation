@@ -26,10 +26,6 @@ public:
     int getAnchorNo();
 
     std::vector<cv::Point> getAnchorPoints();
-    std::vector<std::vector<cv::Point>> getSegments();
-    std::vector<std::vector<cv::Point>> getSortedSegments();
-
-    cv::Mat drawParticularSegments(std::vector<int> list);
 
     PPoint getPPoint(int offset);
 

@@ -15,7 +15,7 @@ cv::Point PPoint::toPoint()
     return cv::Point(col, row);
 }
 
-int PPoint::get_offset(int image_width, int image_height)
+int PPoint::get_offset(int image_width, int image_height) const
 {
     if (col < 0 || row < 0 || col >= image_width || row >= image_height)
         return -1; // Invalid offset

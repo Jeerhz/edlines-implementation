@@ -14,6 +14,7 @@ struct Chain
 
     // Tree traversal and analysis
     void pruneToLongestPath();
+    int total_length(); // Total length of this chain and its children
     int longest_chain_length();
 };
 
@@ -43,5 +44,5 @@ private:
     int max_pixels;
 
     // Helper for extracting pixels along longest path
-    void extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, bool &first_chain);
+    void extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, int min_length, bool &first_chain);
 };

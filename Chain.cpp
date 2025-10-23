@@ -85,9 +85,9 @@ void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
     total_pixels++;
 }
 
-void ChainTree::extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, bool &first_chain)
+void ChainTree::extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, int min_length, bool &first_chain)
 {
-    if (node == nullptr)
+    if (node == nullptr || node->pixels.size() < min_length)
         return;
 
     // Add pixels from current chain
@@ -105,11 +105,70 @@ void ChainTree::extractPixelsRecursive(Chain *node, std::vector<cv::Point> &resu
     // Continue with the child that exists (after pruning, only one path remains)
     if (node->left_or_up_childChain != nullptr)
     {
-        extractPixelsRecursive(node->left_or_up_childChain, result, first_chain);
+        extractPixelsRecursive(node->left_or_up_childChain, result, min_length, first_chain);
     }
     else if (node->right_or_down_childChain != nullptr)
     {
-        extractPixelsRecursive(node->right_or_down_childChain, result, first_chain);
+        extractPixelsRecursive(node->right_or_down_childChain, result, min_length, first_chain);
+    }
+}
+
+// TODO: Do not recuresively compute total length each time
+int Chain::total_length()
+{
+    int length = pixels.size();
+
+    if (left_or_up_childChain != nullptr)
+    {
+        length += left_or_up_childChain->total_length();
+    }
+    if (right_or_down_childChain != nullptr)
+    {
+        length += right_or_down_childChain->total_length();
+    }
+
+    return length;
+}
+
+int Chain::longest_chain_length()
+{
+
+    int left_or_up_length = 0;
+    int right_or_down_length = 0;
+    if (left_or_up_childChain != nullptr)
+    {
+        left_or_up_length = left_or_up_childChain->longest_chain_length();
+    }
+    if (right_or_down_childChain != nullptr)
+    {
+        right_or_down_length = right_or_down_childChain->longest_chain_length();
+    }
+
+    return pixels.size() + std::max(left_or_up_length, right_or_down_length);
+}
+
+void Chain::pruneToLongestPath()
+{
+    // If left or right children do not exist, we're done
+    if (left_or_up_childChain == nullptr || right_or_down_childChain == nullptr)
+        return;
+
+    int left_length = left_or_up_childChain->longest_chain_length();
+    int right_length = right_or_down_childChain->longest_chain_length();
+
+    if (left_length >= right_length)
+    {
+        // Keep left/up child, delete right/down subtree
+        delete right_or_down_childChain;
+        right_or_down_childChain = nullptr;
+        left_or_up_childChain->pruneToLongestPath();
+    }
+    else
+    {
+        // Keep right/down child, delete left/up subtree
+        delete left_or_up_childChain;
+        left_or_up_childChain = nullptr;
+        right_or_down_childChain->pruneToLongestPath();
     }
 }
 
@@ -121,13 +180,7 @@ std::vector<cv::Point> ChainTree::extractSegmentPixels(Chain *chain_head, int mi
         return result;
 
     bool first_chain_flag = true;
-    extractPixelsRecursive(chain_head, result, first_chain_flag);
-
-    // Validate minimum length
-    if ((int)result.size() < min_length)
-    {
-        result.clear();
-    }
+    extractPixelsRecursive(chain_head, result, min_length, first_chain_flag);
 
     return result;
 }
