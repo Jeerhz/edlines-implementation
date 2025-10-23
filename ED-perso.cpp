@@ -374,9 +374,6 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             exploreChain(currentNode, new_chain);
         }
 
-        // Prune to keep only the longest path
-        anchor_chain_root->pruneToLongestPath();
-
         vector<Point> segment = chain_tree.extractSegmentPixels(anchor_chain_root, minPathLen);
         if (!segment.empty())
         {

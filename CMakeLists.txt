@@ -21,7 +21,12 @@ add_library(EDLib STATIC
         Stack.cpp
         Stack.h
         NFA.cpp
-        NFA.h)
+        NFA.h
+        original-ED/original_ED.cpp
+        original-ED/original_ED.h
+        original-ED/original_EDLines.cpp
+        original-ED/original_EDLines.h
+        )
 
 
 add_executable(test_ED test_ED.cpp)
