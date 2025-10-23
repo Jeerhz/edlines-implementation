@@ -57,6 +57,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     DEBUG_LOG("Anchor joining completed. ");
 
     delete[] gradOrientationImgPointer;
+    // Why this provoke double free errors ?
     // delete[] smoothImgPointer;
     // delete[] gradImgPointer;
     // delete[] edgeImgPointer;
@@ -190,6 +191,20 @@ void ED::ComputeGradient()
     DEBUG_LOG("Gradient computation completed. Pixels above threshold: " << pixels_above_threshold);
 }
 
+/**
+ * @brief Detects anchor points (strong edge seed pixels) in the gradient image.
+ *
+ * @details
+ * Scans the gradient image row-by-row (skipping a 2-pixel border) and selects candidate
+ * pixels whose gradient magnitude exceeds gradThresh. For each candidate the local
+ * neighborhood along the edge normal (perpendicular to the edge orientation) is checked:
+ * - If the pixel orientation is EDGE_VERTICAL the left and right neighbors are compared.
+ * - Otherwise (horizontal or non-vertical) the top and bottom neighbors are compared.
+ *
+ * A pixel is marked as an anchor when its gradient value exceeds both neighbor values
+ * by at least anchorThresh.
+ *
+ */
 void ED::ComputeAnchorPoints()
 {
     for (int i = 2; i < image_height - 2; i++)
@@ -463,6 +478,15 @@ bool ED::validateNode(StackNode &node)
     return !(is_edge_pixel || below_threshold);
 }
 
+/**
+ * Explore and grow an edge chain starting from current_node by following
+ * consecutive pixels whose gradient orientation matches the first node direction.
+ * Add visited pixels to current_chain and mark them in the edge image while
+ * enqueuing valid perpendicular neighbors into process_stack when the chain ends.
+ *
+ * @param current_node  Reference to the starting StackNode for chain exploration.
+ * @param current_chain Pointer to the Chain being populated with chain pixels.
+ */
 void ED::exploreChain(StackNode &current_node, Chain *current_chain)
 {
     bool is_horizontal = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT);

@@ -41,8 +41,8 @@ void EDLines::initializeLineDetection(double _line_error, int _min_line_len,
         auto segment_size = segmentPoints[segmentNumber].size();
         buffer_size = std::max(buffer_size, segment_size);
     }
-    double *x = new double[buffer_size];
-    double *y = new double[buffer_size];
+    double *seg_x = new double[buffer_size];
+    double *seg_y = new double[buffer_size];
 
     linesNo = 0;
 
@@ -51,10 +51,10 @@ void EDLines::initializeLineDetection(double _line_error, int _min_line_len,
         const std::vector<Point> &segment = segmentPoints[segmentNumber];
         for (size_t kk = 0; kk < segment.size(); kk++)
         {
-            x[kk] = segment[kk].x;
-            y[kk] = segment[kk].y;
+            seg_x[kk] = segment[kk].x;
+            seg_y[kk] = segment[kk].y;
         }
-        SplitSegment2Lines(x, y, (int)segment.size(), segmentNumber);
+        SplitSegment2Lines(seg_x, seg_y, (int)segment.size(), segmentNumber);
     }
 
     /*----------- JOIN COLLINEAR LINES ----------------*/
@@ -87,8 +87,8 @@ void EDLines::initializeLineDetection(double _line_error, int _min_line_len,
         linePoints.push_back(LS(start, end));
     } // end-for
 
-    delete[] x;
-    delete[] y;
+    delete[] seg_x;
+    delete[] seg_y;
     delete nfa;
 }
 
@@ -132,13 +132,13 @@ int EDLines::ComputeMinLineLength()
     return (int)round((-logNT / log10(0.125)) * 0.5);
 } // end-ComputeMinLineLength
 
-bool EDLines::findInitialLineFit(double *x, double *y, int &currentPixelOffset, int &nbPixelsRemaining,
+bool EDLines::findInitialLineFit(double *seg_x, double *seg_y, int &currentPixelOffset, int &nbPixelsRemaining,
                                  int &segmentFirstPixelIndex, double &a, double &b, double &error, int &invert)
 {
     int slide = 0;
     while (nbPixelsRemaining - slide >= min_line_len)
     {
-        LineFit(&x[currentPixelOffset + slide], &y[currentPixelOffset + slide], min_line_len, a, b, error, invert);
+        LineFit(&seg_x[currentPixelOffset + slide], &seg_y[currentPixelOffset + slide], min_line_len, a, b, error, invert);
         if (error <= EDLinesConfig::INITIAL_ERROR_THRESHOLD)
         {
             // Accept this starting position
@@ -152,7 +152,7 @@ bool EDLines::findInitialLineFit(double *x, double *y, int &currentPixelOffset, 
     return false;
 }
 
-int EDLines::scanForGoodPixels(double *x, double *y, int currentPixelOffset, int &relIndex, int nbPixelsRemaining,
+int EDLines::scanForGoodPixels(double *seg_x, double *seg_y, int currentPixelOffset, int &relIndex, int nbPixelsRemaining,
                                double a, double b, int invert, int &lastGoodRel)
 {
     int goodCount = 0;
@@ -161,7 +161,7 @@ int EDLines::scanForGoodPixels(double *x, double *y, int currentPixelOffset, int
 
     while (relIndex < nbPixelsRemaining)
     {
-        double distance = ComputeMinDistance(x[currentPixelOffset + relIndex], y[currentPixelOffset + relIndex], a, b, invert);
+        double distance = ComputeMinDistance(seg_x[currentPixelOffset + relIndex], seg_y[currentPixelOffset + relIndex], a, b, invert);
 
         if (distance <= line_error)
         {
@@ -228,10 +228,11 @@ void EDLines::updateIndicesAfterLineProcessing(int &nbPixelsRemaining, int &curr
     segmentFirstPixelIndex += len;
 }
 
-bool EDLines::processOneLineIteration(double *x, double *y, int &currentPixelOffset, int &nbPixelsRemaining,
+bool EDLines::processOneLineIteration(double *seg_x, double *seg_y, int &currentPixelOffset, int &nbPixelsRemaining,
                                       int &segmentFirstPixelIndex, double &a, double &b, int &invert, int segmentNo)
 {
     // Try to extend the current candidate line
+
     int relIndex = min_line_len;
     int len = min_line_len;
     int lastGoodRel = relIndex - 1;
@@ -239,13 +240,13 @@ bool EDLines::processOneLineIteration(double *x, double *y, int &currentPixelOff
     while (relIndex < nbPixelsRemaining)
     {
         int segmentStartRel = relIndex;
-        int goodCount = scanForGoodPixels(x, y, currentPixelOffset, relIndex, nbPixelsRemaining, a, b, invert, lastGoodRel);
+        int goodCount = scanForGoodPixels(seg_x, seg_y, currentPixelOffset, relIndex, nbPixelsRemaining, a, b, invert, lastGoodRel);
 
         // If we found enough good pixels, expand the fitted line
         if (goodCount >= EDLinesConfig::MIN_GOOD_RUN)
         {
             len += (lastGoodRel - segmentStartRel + 1);
-            refitLineWithExtendedPixels(x, y, currentPixelOffset, len, a, b, invert);
+            refitLineWithExtendedPixels(seg_x, seg_y, currentPixelOffset, len, a, b, invert);
             relIndex = lastGoodRel + 1;
         }
 
@@ -253,18 +254,18 @@ bool EDLines::processOneLineIteration(double *x, double *y, int &currentPixelOff
         if (goodCount < EDLinesConfig::MIN_GOOD_RUN || relIndex >= nbPixelsRemaining)
         {
             // Find exact endpoints
-            int firstRel = findFirstValidPixel(x, y, currentPixelOffset, len, a, b, invert);
+            int firstRel = findFirstValidPixel(seg_x, seg_y, currentPixelOffset, len, a, b, invert);
             if (firstRel >= len)
                 return false; // No valid point found
 
-            int lastRel = findLastValidPixel(x, y, currentPixelOffset, lastGoodRel, a, b, invert);
+            int lastRel = findLastValidPixel(seg_x, seg_y, currentPixelOffset, lastGoodRel, a, b, invert);
             if (lastRel < 0)
                 return false; // Should not happen
 
             // Compute endpoint coordinates
             double sx, sy, ex, ey;
-            ComputeClosestPoint(x[currentPixelOffset + firstRel], y[currentPixelOffset + firstRel], a, b, invert, sx, sy);
-            ComputeClosestPoint(x[currentPixelOffset + lastRel], y[currentPixelOffset + lastRel], a, b, invert, ex, ey);
+            ComputeClosestPoint(seg_x[currentPixelOffset + firstRel], seg_y[currentPixelOffset + firstRel], a, b, invert, sx, sy);
+            ComputeClosestPoint(seg_x[currentPixelOffset + lastRel], seg_y[currentPixelOffset + lastRel], a, b, invert, ex, ey);
 
             // Validate endpoints
             if (!validateLineEndpoints(sx, sy, ex, ey))
@@ -285,10 +286,17 @@ bool EDLines::processOneLineIteration(double *x, double *y, int &currentPixelOff
 }
 
 // Given a full segment of pixels, splits the chain to lines
-void EDLines::SplitSegment2Lines(double *x, double *y, int noPixels, int segmentNo)
+void EDLines::SplitSegment2Lines(double *seg_x, double *seg_y, int noPixels, int segmentNo)
 {
+    // Offset (in pixels) from the start of this segment to the first unprocessed pixel.
+    // Access pixels as seg_x[currentPixelOffset + i], seg_y[currentPixelOffset + i].
     int currentPixelOffset = 0;
+
+    // Number of pixels remaining to process in this segment (count of pixels starting at currentPixelOffset).
     int nbPixelsRemaining = noPixels;
+
+    // Index (within the original segment) of the pixel at currentPixelOffset.
+    // Used to compute absolute pixel indices when storing line segments (e.g. segmentFirstPixelIndex + firstRel).
     int segmentFirstPixelIndex = 0;
 
     // Process segments until we run out of pixels
@@ -298,11 +306,11 @@ void EDLines::SplitSegment2Lines(double *x, double *y, int noPixels, int segment
         int invert = 0;
 
         // Find initial line fit
-        if (!findInitialLineFit(x, y, currentPixelOffset, nbPixelsRemaining, segmentFirstPixelIndex, a, b, error, invert))
+        if (!findInitialLineFit(seg_x, seg_y, currentPixelOffset, nbPixelsRemaining, segmentFirstPixelIndex, a, b, error, invert))
             return; // No valid initial line found
 
         // Process one line and try to extend it
-        if (!processOneLineIteration(x, y, currentPixelOffset, nbPixelsRemaining, segmentFirstPixelIndex, a, b, invert, segmentNo))
+        if (!processOneLineIteration(seg_x, seg_y, currentPixelOffset, nbPixelsRemaining, segmentFirstPixelIndex, a, b, invert, segmentNo))
             break; // Stop if line processing fails
     }
 }
@@ -1237,109 +1245,4 @@ void EDLines::EnumerateRectPoints(double sx, double sy, double ex, double ey, in
     } // end-while
 
     *pNoPoints = noPoints;
-}
-
-void EDLines::SplitSegment2Lines(double *x, double *y, int noPixels, int segmentNo, vector<LineSegment> &lines, int min_line_len, double line_error)
-{
-    // First pixel of the line segment within the segment of points
-    int segmentFirstPixelIndex = 0;
-
-    while (noPixels >= min_line_len)
-    {
-        // Start by fitting a line to MIN_LINE_LEN pixels
-        bool valid = false;
-        double lastA, lastB, error;
-        int lastInvert;
-
-        while (noPixels >= min_line_len)
-        {
-            LineFit(x, y, min_line_len, lastA, lastB, error, lastInvert);
-            if (error <= 0.5)
-            {
-                valid = true;
-                break;
-            }
-
-#if 1
-            noPixels -= 1; // Go slowly
-            x += 1;
-            y += 1;
-            segmentFirstPixelIndex += 1;
-#else
-            noPixels -= 2; // Go faster (for speed)
-            x += 2;
-            y += 2;
-            segmentFirstPixelIndex += 2;
-#endif
-        } // end-while
-
-        if (valid == false)
-            return;
-
-        // Now try to extend this line
-        int index = min_line_len;
-        int len = min_line_len;
-
-        while (index < noPixels)
-        {
-            int currentPixelOffset = index;
-            int lastGoodIndex = index - 1;
-            int goodPixelCount = 0;
-            int badPixelCount = 0;
-            while (index < noPixels)
-            {
-                double d = ComputeMinDistance(x[index], y[index], lastA, lastB, lastInvert);
-
-                if (d <= line_error)
-                {
-                    lastGoodIndex = index;
-                    goodPixelCount++;
-                    badPixelCount = 0;
-                }
-                else
-                {
-                    badPixelCount++;
-                    if (badPixelCount >= 5)
-                        break;
-                } // end-if
-
-                index++;
-            } // end-while
-
-            if (goodPixelCount >= 2)
-            {
-                len += lastGoodIndex - currentPixelOffset + 1;
-                LineFit(x, y, len, lastA, lastB, lastInvert); // faster LineFit
-                index = lastGoodIndex + 1;
-            } // end-if
-
-            if (goodPixelCount < 2 || index >= noPixels)
-            {
-                // End of a line segment. Compute the end points
-                double sx, sy, ex, ey;
-
-                int index = 0;
-                while (ComputeMinDistance(x[index], y[index], lastA, lastB, lastInvert) > line_error)
-                    index++;
-                ComputeClosestPoint(x[index], y[index], lastA, lastB, lastInvert, sx, sy);
-                int noSkippedPixels = index;
-
-                index = lastGoodIndex;
-                while (ComputeMinDistance(x[index], y[index], lastA, lastB, lastInvert) > line_error)
-                    index--;
-                ComputeClosestPoint(x[index], y[index], lastA, lastB, lastInvert, ex, ey);
-
-                // Add the line segment to lines
-                lines.push_back(LineSegment(lastA, lastB, lastInvert, sx, sy, ex, ey, segmentNo, segmentFirstPixelIndex + noSkippedPixels, index - noSkippedPixels + 1));
-                // linesNo++;
-                len = index + 1;
-                break;
-            } // end-else
-        } // end-while
-
-        noPixels -= len;
-        x += len;
-        y += len;
-        segmentFirstPixelIndex += len;
-    } // end-while
 }
