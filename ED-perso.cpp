@@ -328,6 +328,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
     for (int k = anchorNb - 1; k >= 0; k--)
     {
+        DEBUG_LOG("Processing anchor " << (anchorNb - k) << " / " << anchorNb);
         int anchorPixelOffset = SortedAnchors[k];
         int nb_processed_stack_node = 0;
         PPoint anchor = getPPoint(anchorPixelOffset);
@@ -383,11 +384,11 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             exploreChain(currentNode, new_chain);
         }
 
-        // if (!validateChainLength(anchor_chain_root, minPathLen))
-        // {
-        //     removeChain(anchor_chain_root);
-        //     return;
-        // }
+        if (!validateChainLength(anchor_chain_root, minPathLen))
+        {
+            DEBUG_LOG("Removing short anchor chain starting at (" << anchor.x << ", " << anchor.y << ") with length " << anchor_chain_root->total_length());
+            removeChain(anchor_chain_root);
+        }
     }
 
     // Create segments from chains (copy chains with cleaning step)
