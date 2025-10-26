@@ -51,6 +51,8 @@ private:
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);
     StackNode getNextNode(StackNode &current_node);
     bool validateNode(StackNode &node);
+    bool isEdgesNeighbor(const StackNode &current_node);
+    void pruneTrailingAdjacentEdgePixels(StackNode &current_node, Chain *current_chain);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;

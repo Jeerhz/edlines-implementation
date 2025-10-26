@@ -85,6 +85,17 @@ void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
     total_pixels++;
 }
 
+PPoint ChainTree::PopPixelFromChain(Chain *chain)
+{
+    if (chain == nullptr || total_pixels <= 0)
+        return PPoint();
+
+    PPoint pixel = chain->pixels.back();
+    chain->pixels.pop_back();
+    total_pixels--;
+    return pixel;
+}
+
 void ChainTree::extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, int min_length, bool &first_chain)
 {
     if (node == nullptr || node->pixels.size() < min_length)
@@ -111,6 +122,34 @@ void ChainTree::extractPixelsRecursive(Chain *node, std::vector<cv::Point> &resu
     {
         extractPixelsRecursive(node->right_or_down_childChain, result, min_length, first_chain);
     }
+}
+
+// Flatten the chain tree into a queue of chains
+// TODO (adle): test this function
+std::deque<Chain *> ChainTree::flattenChainsToQueue()
+{
+    std::deque<Chain *> result;
+    if (!first_chain_root)
+        return result;
+
+    // Use a queue as a FIFO structure to perform BFS
+    result.push_back(first_chain_root);
+
+    while (!result.empty())
+    {
+        Chain *node = result.front();
+        result.pop_front();
+
+        // Process the current node
+        result.push_back(node);
+
+        if (node->left_or_up_childChain)
+            result.push_back(node->left_or_up_childChain);
+        if (node->right_or_down_childChain)
+            result.push_back(node->right_or_down_childChain);
+    }
+
+    return result;
 }
 
 // TODO: Do not recuresively compute total length each time

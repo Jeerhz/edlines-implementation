@@ -458,6 +458,32 @@ bool validateChainLength(Chain *chain, int min_length)
     return (chain->pixels.size() >= min_length);
 }
 
+// Do not let the last node being adjacent to an edge pixel
+void ED::pruneTrailingAdjacentEdgePixels(StackNode &current_node, Chain *current_chain)
+{
+    std::deque<Chain *> chains_queue_copy = chain_tree.flattenChainsToQueue();
+    while (!chains_queue_copy.empty())
+    {
+        Chain *chain = chains_queue_copy.back();
+        chains_queue_copy.pop_back();
+
+        while (!chain->pixels.empty())
+        {
+            PPoint last_pixel = chain->pixels.back();
+            bool adjacent_to_edge = isEdgesNeighbor(StackNode(last_pixel.row, last_pixel.col, UNDEFINED, EDGE_UNDEFINED));
+            if (adjacent_to_edge)
+            {
+                chain->pixels.pop_back();
+                edgeImgPointer[last_pixel.get_offset(image_width, image_height)] = 0;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+}
+
 /**
  * Explore and grow an edge chain starting from current_node by following
  * consecutive pixels whose gradient orientation matches the first node direction.
@@ -490,10 +516,16 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
         current_node = next_node;
     }
 
+    // Do not let the last node being adjacent to an edge pixel
+    pruneTrailingAdjacentEdgePixels(current_node, current_chain);
+
     if (!validateChainLength(current_chain, minPathLen))
     {
-        for (const PPoint &p : current_chain->pixels)
-            edgeImgPointer[p.get_offset(image_width, image_height)] = 0; // Reset to non-edge
+        while (!current_chain->pixels.empty())
+        {
+            PPoint p = chain_tree.PopPixelFromChain(current_chain);
+            edgeImgPointer[p.get_offset(image_width, image_height)] = 0;
+        }
         return;
     }
 

@@ -28,6 +28,10 @@ public:
     // Chain management
     Chain *createNewChain(Direction dir);
     void addPixelToChain(Chain *chain, const PPoint &pixel);
+    PPoint PopPixelFromChain(Chain *chain);
+
+        // TODO (adle): test this function
+    std::deque<Chain *> flattenChainsToQueue();
 
     // Getters
     Chain *getFirstChain() const { return first_chain_root; }
