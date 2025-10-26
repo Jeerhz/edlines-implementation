@@ -367,20 +367,15 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
 void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
 {
-    if (current_node.node_direction == LEFT || current_node.node_direction == RIGHT)
-    {
-        if (edgeImgPointer[(current_node.node_row - 1) * image_width + current_node.node_column] == ANCHOR_PIXEL)
-            edgeImgPointer[(current_node.node_row - 1) * image_width + current_node.node_column] = 0;
-        if (edgeImgPointer[(current_node.node_row + 1) * image_width + current_node.node_column] == ANCHOR_PIXEL)
-            edgeImgPointer[(current_node.node_row + 1) * image_width + current_node.node_column] = 0;
-    }
-    else
-    {
-        if (edgeImgPointer[current_node.node_row * image_width + current_node.node_column - 1] == ANCHOR_PIXEL)
-            edgeImgPointer[current_node.node_row * image_width + current_node.node_column - 1] = 0;
-        if (edgeImgPointer[current_node.node_row * image_width + current_node.node_column + 1] == ANCHOR_PIXEL)
-            edgeImgPointer[current_node.node_row * image_width + current_node.node_column + 1] = 0;
-    }
+    int offset = current_node.get_offset(image_width);
+    int offset_diff = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT) ? 1 : image_width;
+
+    // Left/down neighbor
+    if (edgeImgPointer[offset - offset_diff] == ANCHOR_PIXEL)
+        edgeImgPointer[offset - offset_diff] = 0;
+    // Right/up neighbor
+    if (edgeImgPointer[offset + offset_diff] == ANCHOR_PIXEL)
+        edgeImgPointer[offset + offset_diff] = 0;
 }
 
 StackNode ED::getNextNode(StackNode &current_node)
