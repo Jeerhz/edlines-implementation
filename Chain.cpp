@@ -76,11 +76,6 @@ void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
     if (chain == nullptr)
         return;
 
-    if (total_pixels >= max_pixels)
-    {
-        throw std::runtime_error("Chain::addPixelToChain: Maximum pixel capacity exceeded");
-    }
-
     chain->pixels.push_back(pixel);
     total_pixels++;
 }
@@ -157,9 +152,9 @@ int Chain::total_length()
 {
     int length = pixels.size();
 
-    if (left_or_up_childChain != nullptr)
+    if (left_or_up_childChain != nullptr && right_or_down_childChain != nullptr)
     {
-        length += left_or_up_childChain->total_length();
+        length += left_or_up_childChain->total_length() + right_or_down_childChain->total_length();
     }
     if (right_or_down_childChain != nullptr)
     {
@@ -167,48 +162,6 @@ int Chain::total_length()
     }
 
     return length;
-}
-
-int Chain::longest_chain_length()
-{
-
-    int left_or_up_length = 0;
-    int right_or_down_length = 0;
-    if (left_or_up_childChain != nullptr)
-    {
-        left_or_up_length = left_or_up_childChain->longest_chain_length();
-    }
-    if (right_or_down_childChain != nullptr)
-    {
-        right_or_down_length = right_or_down_childChain->longest_chain_length();
-    }
-
-    return pixels.size() + std::max(left_or_up_length, right_or_down_length);
-}
-
-void Chain::pruneToLongestPath()
-{
-    // If left or right children do not exist, we're done
-    if (left_or_up_childChain == nullptr || right_or_down_childChain == nullptr)
-        return;
-
-    int left_length = left_or_up_childChain->longest_chain_length();
-    int right_length = right_or_down_childChain->longest_chain_length();
-
-    if (left_length >= right_length)
-    {
-        // Keep left/up child, delete right/down subtree
-        delete right_or_down_childChain;
-        right_or_down_childChain = nullptr;
-        left_or_up_childChain->pruneToLongestPath();
-    }
-    else
-    {
-        // Keep right/down child, delete left/up subtree
-        delete left_or_up_childChain;
-        left_or_up_childChain = nullptr;
-        right_or_down_childChain->pruneToLongestPath();
-    }
 }
 
 std::vector<cv::Point> ChainTree::extractSegmentPixels(Chain *chain_head, int min_length)

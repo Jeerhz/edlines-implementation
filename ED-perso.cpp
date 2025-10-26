@@ -298,7 +298,7 @@ bool validateChainLength(Chain *chain, int min_length)
 {
     if (chain == nullptr)
         return false;
-    return (chain->pixels.size() >= min_length);
+    return (chain->total_length() >= min_length);
 }
 
 void ED::removeChain(Chain *chain)
@@ -334,11 +334,13 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
         // Skip if already processed
         if (edgeImgPointer[anchorPixelOffset] == EDGE_PIXEL)
+        {
+            DEBUG_LOG("Skipping already processed anchor at (" << anchor.x << ", " << anchor.y << ")");
             continue;
+        }
 
         Chain *anchor_chain_root = chain_tree.createNewChain(
             anchor.grad_orientation == EDGE_VERTICAL ? UP : LEFT);
-        chain_tree.addPixelToChain(anchor_chain_root, anchor);
         edgeImgPointer[anchorPixelOffset] = EDGE_PIXEL;
 
         // Ensure the process stack is empty before starting
@@ -355,8 +357,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         }
 
         Chain *current_parent = anchor_chain_root;
-        bool first_child = true;
 
+        // First child is set so the first child is left/up and the second one is right/down and then we move down the tree
+        bool first_child = true;
         while (!process_stack.empty())
         {
             nb_processed_stack_node++;
@@ -380,18 +383,19 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             exploreChain(currentNode, new_chain);
         }
 
-        if (!validateChainLength(anchor_chain_root, minPathLen))
-        {
-            removeChain(anchor_chain_root);
-            return;
-        }
-
-        vector<Point> segment = chain_tree.extractSegmentPixels(anchor_chain_root, minPathLen);
-        if (!segment.empty())
-        {
-            segmentPoints.push_back(segment);
-        }
+        // if (!validateChainLength(anchor_chain_root, minPathLen))
+        // {
+        //     removeChain(anchor_chain_root);
+        //     return;
+        // }
     }
+
+    // Create segments from chains (copy chains with cleaning step)
+    // vector<Point> segment = chain_tree.extractSegmentPixels(anchor_chain_root, minPathLen);
+    //     if (!segment.empty())
+    //     {
+    //         segmentPoints.push_back(segment);
+    //     }
 
     delete[] SortedAnchors;
     DEBUG_LOG("\n=== Finished JoinAnchorPointsUsingSortedAnchors ===\n");
@@ -497,7 +501,7 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
 
         StackNode next_node = getNextNode(current_node);
         if (!validateNode(next_node))
-            break;
+            return;
 
         current_node = next_node;
     }
@@ -527,15 +531,13 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
         {
             StackNode left_node(current_node.node_row, current_node.node_column - 1, LEFT, EDGE_HORIZONTAL);
             int offset = left_node.get_offset(image_width);
-            if (validateNode(left_node) && gradOrientationImgPointer[offset] == EDGE_HORIZONTAL)
-                process_stack.push(left_node);
+            process_stack.push(left_node);
         }
         if (current_node.node_column + 1 < image_width)
         {
             StackNode right_node(current_node.node_row, current_node.node_column + 1, RIGHT, EDGE_HORIZONTAL);
             int offset = right_node.get_offset(image_width);
-            if (validateNode(right_node) && gradOrientationImgPointer[offset] == EDGE_HORIZONTAL)
-                process_stack.push(right_node);
+            process_stack.push(right_node);
         }
     }
 }

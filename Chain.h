@@ -13,9 +13,7 @@ struct Chain
     ~Chain();
 
     // Tree traversal and analysis
-    void pruneToLongestPath();
     int total_length(); // Total length of this chain and its children
-    int longest_chain_length();
 };
 
 class ChainTree
@@ -30,7 +28,7 @@ public:
     void addPixelToChain(Chain *chain, const PPoint &pixel);
     PPoint PopPixelFromChain(Chain *chain);
 
-        // TODO (adle): test this function
+    // TODO (adle): test this function
     std::deque<Chain *> flattenChainsToQueue();
 
     // Getters
