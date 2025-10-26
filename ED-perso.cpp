@@ -294,11 +294,11 @@ void setRightOrDownChildToChain(Chain *parent, Chain *child)
     parent->right_or_down_childChain = child;
 }
 
-bool validateChainLength(Chain *chain, int min_length)
+bool validateChainLength(Chain *chain, int nb_processed_stacknode_in_anchor_chain, int min_length)
 {
     if (chain == nullptr)
         return false;
-    return (chain->total_length() >= min_length);
+    return (chain->total_length() - nb_processed_stacknode_in_anchor_chain >= min_length);
 }
 
 void ED::removeChain(Chain *chain)
@@ -325,12 +325,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
     DEBUG_LOG("\n=== Starting JoinAnchorPointsUsingSortedAnchors ===");
     int *SortedAnchors = sortAnchorsByGradValue();
     DEBUG_LOG("Sorted " << anchorNb << " anchors by gradient value");
-
+    int nb_processed_stacknode_in_anchor_chain = 0;
     for (int k = anchorNb - 1; k >= 0; k--)
     {
         DEBUG_LOG("Processing anchor " << (anchorNb - k) << " / " << anchorNb);
         int anchorPixelOffset = SortedAnchors[k];
-        int nb_processed_stack_node = 0;
+        nb_processed_stacknode_in_anchor_chain = 0;
         PPoint anchor = getPPoint(anchorPixelOffset);
 
         // Skip if already processed
@@ -363,7 +363,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         bool first_child = true;
         while (!process_stack.empty())
         {
-            nb_processed_stack_node++;
+            nb_processed_stacknode_in_anchor_chain++;
             StackNode currentNode = process_stack.top();
             process_stack.pop();
 
@@ -384,7 +384,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             exploreChain(currentNode, new_chain);
         }
 
-        if (!validateChainLength(anchor_chain_root, minPathLen))
+        if (!validateChainLength(anchor_chain_root, nb_processed_stacknode_in_anchor_chain, minPathLen))
         {
             DEBUG_LOG("Removing short anchor chain starting at (" << anchor.x << ", " << anchor.y << ") with length " << anchor_chain_root->total_length());
             removeChain(anchor_chain_root);
