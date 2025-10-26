@@ -294,6 +294,32 @@ void setRightOrDownChildToChain(Chain *parent, Chain *child)
     parent->right_or_down_childChain = child;
 }
 
+bool validateChainLength(Chain *chain, int min_length)
+{
+    if (chain == nullptr)
+        return false;
+    return (chain->pixels.size() >= min_length);
+}
+
+void ED::removeChain(Chain *chain)
+{
+    if (chain == nullptr)
+        return;
+
+    {
+        while (!chain->pixels.empty())
+        {
+            PPoint p = chain_tree.PopPixelFromChain(chain);
+            edgeImgPointer[p.get_offset(image_width, image_height)] = 0;
+        }
+        return;
+    }
+
+    // Call removeChain recursively on child chains
+    removeChain(chain->left_or_up_childChain);
+    removeChain(chain->right_or_down_childChain);
+}
+
 void ED::JoinAnchorPointsUsingSortedAnchors()
 {
     DEBUG_LOG("\n=== Starting JoinAnchorPointsUsingSortedAnchors ===");
@@ -354,6 +380,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             exploreChain(currentNode, new_chain);
         }
 
+        if (!validateChainLength(anchor_chain_root, minPathLen))
+        {
+            removeChain(anchor_chain_root);
+            return;
+        }
+
         vector<Point> segment = chain_tree.extractSegmentPixels(anchor_chain_root, minPathLen);
         if (!segment.empty())
         {
@@ -380,66 +412,52 @@ void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
 
 StackNode ED::getNextNode(StackNode &current_node)
 {
-    int current_row = current_node.node_row;
-    int current_col = current_node.node_column;
-    Direction current_node_direction = current_node.node_direction;
+    int node_row = current_node.node_row;
+    int node_col = current_node.node_column;
+    Direction dir = current_node.node_direction;
 
-    static const int neighbor_row_offsets[4][3] = {
+    // dr/dc indexed by Direction: LEFT, RIGHT, UP, DOWN
+    static const int dr[4][3] = {
         {-1, 0, 1},   // LEFT
         {-1, 0, 1},   // RIGHT
         {-1, -1, -1}, // UP
         {1, 1, 1}     // DOWN
     };
-    static const int neighbor_col_offsets[4][3] = {
+    static const int dc[4][3] = {
         {-1, -1, -1}, // LEFT
         {1, 1, 1},    // RIGHT
         {-1, 0, 1},   // UP
         {-1, 0, 1}    // DOWN
     };
 
-    // First, look for anchor pixels
-    for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
-    {
-        int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][neighbor_idx];
-        int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][neighbor_idx];
+    int best_grad = -1;
+    int best_row = node_row, best_col = node_col;
 
-        if (neighbor_row >= 0 && neighbor_row < image_height &&
-            neighbor_col >= 0 && neighbor_col < image_width)
+    // Prefer anchor/edge (immediate return), otherwise track max gradient
+    for (int neighbor_index = 0; neighbor_index < 3; ++neighbor_index)
+    {
+        int neighbor_row = node_row + dr[dir][neighbor_index];
+        int neighbor_col = node_col + dc[dir][neighbor_index];
+
+        if (neighbor_row < 0 || neighbor_row >= image_height || neighbor_col < 0 || neighbor_col >= image_width)
+            continue;
+
+        int offset = neighbor_row * image_width + neighbor_col;
+        int edge_pixel_value = edgeImgPointer[offset];
+        if (edge_pixel_value == ANCHOR_PIXEL || edge_pixel_value == EDGE_PIXEL)
+            return StackNode(neighbor_row, neighbor_col, dir, current_node.grad_orientation);
+
+        int grad_value = gradImgPointer[offset];
+        if (grad_value > best_grad)
         {
-            int edge_val = edgeImgPointer[neighbor_row * image_width + neighbor_col];
-            // join if anchor or edge pixel found
-            if (edge_val == ANCHOR_PIXEL || edge_val == EDGE_PIXEL)
-            {
-                return StackNode(neighbor_row, neighbor_col, current_node_direction, current_node.grad_orientation);
-            }
+            best_grad = grad_value;
+            best_row = neighbor_row;
+            best_col = neighbor_col;
         }
     }
 
-    // If no anchor/edge found, find pixel with maximum gradient
-    int max_gradient = -1, max_gradient_neighbor_idx = -1;
-    for (int neighbor_idx = 0; neighbor_idx < 3; ++neighbor_idx)
-    {
-        int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][neighbor_idx];
-        int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][neighbor_idx];
-
-        if (neighbor_row >= 0 && neighbor_row < image_height &&
-            neighbor_col >= 0 && neighbor_col < image_width)
-        {
-            int gradient = gradImgPointer[neighbor_row * image_width + neighbor_col];
-            if (gradient > max_gradient)
-            {
-                max_gradient = gradient;
-                max_gradient_neighbor_idx = neighbor_idx;
-            }
-        }
-    }
-
-    if (max_gradient_neighbor_idx != -1)
-    {
-        int neighbor_row = current_row + neighbor_row_offsets[current_node_direction][max_gradient_neighbor_idx];
-        int neighbor_col = current_col + neighbor_col_offsets[current_node_direction][max_gradient_neighbor_idx];
-        return StackNode(neighbor_row, neighbor_col, current_node_direction, current_node.grad_orientation);
-    }
+    if (best_grad >= 0)
+        return StackNode(best_row, best_col, dir, current_node.grad_orientation);
 
     return current_node;
 }
@@ -449,39 +467,6 @@ bool ED::validateNode(StackNode &node)
     bool is_edge_pixel = (edgeImgPointer[node.get_offset(image_width)] == EDGE_PIXEL);
     bool below_threshold = (gradImgPointer[node.get_offset(image_width)] < gradThresh);
     return !(is_edge_pixel || below_threshold);
-}
-
-bool validateChainLength(Chain *chain, int min_length)
-{
-    if (chain == nullptr)
-        return false;
-    return (chain->pixels.size() >= min_length);
-}
-
-// Do not let the last node being adjacent to an edge pixel
-void ED::pruneTrailingAdjacentEdgePixels(StackNode &current_node, Chain *current_chain)
-{
-    std::deque<Chain *> chains_queue_copy = chain_tree.flattenChainsToQueue();
-    while (!chains_queue_copy.empty())
-    {
-        Chain *chain = chains_queue_copy.back();
-        chains_queue_copy.pop_back();
-
-        while (!chain->pixels.empty())
-        {
-            PPoint last_pixel = chain->pixels.back();
-            bool adjacent_to_edge = isEdgesNeighbor(StackNode(last_pixel.row, last_pixel.col, UNDEFINED, EDGE_UNDEFINED));
-            if (adjacent_to_edge)
-            {
-                chain->pixels.pop_back();
-                edgeImgPointer[last_pixel.get_offset(image_width, image_height)] = 0;
-            }
-            else
-            {
-                break;
-            }
-        }
-    }
 }
 
 /**
@@ -495,11 +480,12 @@ void ED::pruneTrailingAdjacentEdgePixels(StackNode &current_node, Chain *current
  */
 void ED::exploreChain(StackNode &current_node, Chain *current_chain)
 {
-    bool is_horizontal = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT);
+    bool is_chain_horizontal = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT);
 
+    // Explore until we find change direction or we hit an edge pixel or the gradient is below threshold
     while (true)
     {
-        GradOrientation expected_orientation = is_horizontal ? EDGE_HORIZONTAL : EDGE_VERTICAL;
+        GradOrientation expected_orientation = is_chain_horizontal ? EDGE_HORIZONTAL : EDGE_VERTICAL;
         if (gradOrientationImgPointer[current_node.get_offset(image_width)] != expected_orientation)
             break;
 
@@ -516,20 +502,7 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
         current_node = next_node;
     }
 
-    // Do not let the last node being adjacent to an edge pixel
-    pruneTrailingAdjacentEdgePixels(current_node, current_chain);
-
-    if (!validateChainLength(current_chain, minPathLen))
-    {
-        while (!current_chain->pixels.empty())
-        {
-            PPoint p = chain_tree.PopPixelFromChain(current_chain);
-            edgeImgPointer[p.get_offset(image_width, image_height)] = 0;
-        }
-        return;
-    }
-
-    if (is_horizontal)
+    if (is_chain_horizontal)
     {
         // Add UP and DOWN for horizontal chains
         if (current_node.node_row - 1 >= 0)
