@@ -45,7 +45,7 @@ private:
     void ComputeGradient();
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
-    void exploreChain(StackNode &current_node, Chain *current_chain);
+    bool exploreChain(StackNode &current_node, Chain *current_chain);
     int *sortAnchorsByGradValue();
 
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);

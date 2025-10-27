@@ -153,13 +153,10 @@ int Chain::total_length(int current_length)
     int total_length = current_length + pixels.size();
 
     if (left_or_up_childChain != nullptr)
-    {
         total_length += left_or_up_childChain->total_length(total_length);
-    }
+
     if (right_or_down_childChain != nullptr)
-    {
         total_length += right_or_down_childChain->total_length(total_length);
-    }
 
     return total_length;
 }
