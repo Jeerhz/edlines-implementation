@@ -13,7 +13,7 @@ struct Chain
     ~Chain();
 
     // Tree traversal and analysis
-    int total_length(); // Total length of this chain and its children
+    int total_length(int current_length = 0); // Total length of this chain and its children
 };
 
 class ChainTree

@@ -325,16 +325,16 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
     DEBUG_LOG("\n=== Starting JoinAnchorPointsUsingSortedAnchors ===");
     int *SortedAnchors = sortAnchorsByGradValue();
     DEBUG_LOG("Sorted " << anchorNb << " anchors by gradient value");
-    int nb_processed_stacknode_in_anchor_chain = 0;
+    int nb_duplicate_processed_stacknode_in_anchor_chain = 0;
     for (int k = anchorNb - 1; k >= 0; k--)
     {
         DEBUG_LOG("Processing anchor " << (anchorNb - k) << " / " << anchorNb);
         int anchorPixelOffset = SortedAnchors[k];
-        nb_processed_stacknode_in_anchor_chain = 0;
+        nb_duplicate_processed_stacknode_in_anchor_chain = 0;
         PPoint anchor = getPPoint(anchorPixelOffset);
 
         // Skip if already processed
-        if (edgeImgPointer[anchorPixelOffset] == EDGE_PIXEL)
+        if (edgeImgPointer[anchorPixelOffset] != ANCHOR_PIXEL)
         {
             DEBUG_LOG("Skipping already processed anchor at (" << anchor.x << ", " << anchor.y << ")");
             continue;
@@ -363,9 +363,12 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         bool first_child = true;
         while (!process_stack.empty())
         {
-            nb_processed_stacknode_in_anchor_chain++;
+
             StackNode currentNode = process_stack.top();
             process_stack.pop();
+
+            if (edgeImgPointer[currentNode.get_offset(image_width)] != EDGE_PIXEL)
+                nb_duplicate_processed_stacknode_in_anchor_chain++;
 
             Chain *new_chain = chain_tree.createNewChain(currentNode.node_direction);
 
@@ -384,7 +387,7 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             exploreChain(currentNode, new_chain);
         }
 
-        if (!validateChainLength(anchor_chain_root, nb_processed_stacknode_in_anchor_chain, minPathLen))
+        if (!validateChainLength(anchor_chain_root, nb_duplicate_processed_stacknode_in_anchor_chain, minPathLen))
         {
             DEBUG_LOG("Removing short anchor chain starting at (" << anchor.x << ", " << anchor.y << ") with length " << anchor_chain_root->total_length());
             removeChain(anchor_chain_root);
@@ -407,10 +410,10 @@ void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
     int offset = current_node.get_offset(image_width);
     int offset_diff = (current_node.node_direction == LEFT || current_node.node_direction == RIGHT) ? 1 : image_width;
 
-    // Left/down neighbor
+    // Left/up neighbor
     if (edgeImgPointer[offset - offset_diff] == ANCHOR_PIXEL)
         edgeImgPointer[offset - offset_diff] = 0;
-    // Right/up neighbor
+    // Right/down neighbor
     if (edgeImgPointer[offset + offset_diff] == ANCHOR_PIXEL)
         edgeImgPointer[offset + offset_diff] = 0;
 }
@@ -421,50 +424,33 @@ StackNode ED::getNextNode(StackNode &current_node)
     int node_col = current_node.node_column;
     Direction dir = current_node.node_direction;
 
-    // dr/dc indexed by Direction: LEFT, RIGHT, UP, DOWN
-    static const int dr[4][3] = {
-        {-1, 0, 1},   // LEFT
-        {-1, 0, 1},   // RIGHT
-        {-1, -1, -1}, // UP
-        {1, 1, 1}     // DOWN
-    };
-    static const int dc[4][3] = {
-        {-1, -1, -1}, // LEFT
-        {1, 1, 1},    // RIGHT
-        {-1, 0, 1},   // UP
-        {-1, 0, 1}    // DOWN
-    };
+    int offset_sign = (dir == LEFT || dir == UP) ? -1 : 1;
+    int direction_offset_diff = (dir == LEFT || dir == RIGHT) ? 1 : image_width;
+    int perpendicular_offset_diff = (dir == LEFT || dir == RIGHT) ? image_width : 1;
 
-    int best_grad = -1;
-    int best_row = node_row, best_col = node_col;
+    int biggest_grad = -1;
+    int offset_biggest_grad = -1;
 
     // Prefer anchor/edge (immediate return), otherwise track max gradient
-    for (int neighbor_index = 0; neighbor_index < 3; ++neighbor_index)
+    for (int diff = -1; diff <= 1; diff++)
     {
-        int neighbor_row = node_row + dr[dir][neighbor_index];
-        int neighbor_col = node_col + dc[dir][neighbor_index];
-
-        if (neighbor_row < 0 || neighbor_row >= image_height || neighbor_col < 0 || neighbor_col >= image_width)
-            continue;
-
-        int offset = neighbor_row * image_width + neighbor_col;
-        int edge_pixel_value = edgeImgPointer[offset];
-        if (edge_pixel_value == ANCHOR_PIXEL || edge_pixel_value == EDGE_PIXEL)
-            return StackNode(neighbor_row, neighbor_col, dir, current_node.grad_orientation);
-
-        int grad_value = gradImgPointer[offset];
-        if (grad_value > best_grad)
+        int neighbor_offset = node_row * image_width + node_col + offset_sign * (direction_offset_diff + diff * perpendicular_offset_diff);
+        uchar pixel_value = edgeImgPointer[neighbor_offset];
+        if (pixel_value == ANCHOR_PIXEL || pixel_value == EDGE_PIXEL)
         {
-            best_grad = grad_value;
-            best_row = neighbor_row;
-            best_col = neighbor_col;
+            int neighbor_row = neighbor_offset / image_width;
+            int neighbor_col = neighbor_offset % image_width;
+        }
+        int neighbor_grad = gradImgPointer[neighbor_offset];
+        if (neighbor_grad > biggest_grad)
+        {
+            biggest_grad = neighbor_grad;
+            offset_biggest_grad = neighbor_offset;
         }
     }
-
-    if (best_grad >= 0)
-        return StackNode(best_row, best_col, dir, current_node.grad_orientation);
-
-    return current_node;
+    int biggest_grad_row = offset_biggest_grad / image_width;
+    int biggest_grad_col = offset_biggest_grad % image_width;
+    return StackNode(biggest_grad_row, biggest_grad_col, dir, current_node.grad_orientation);
 }
 
 bool ED::validateNode(StackNode &node)
@@ -497,12 +483,12 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
         edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
         cleanUpSurroundingAnchorPixels(current_node);
 
-        PPoint pixel = getPPoint(current_node.get_offset(image_width));
-        chain_tree.addPixelToChain(current_chain, pixel);
-
         StackNode next_node = getNextNode(current_node);
         if (!validateNode(next_node))
             return;
+
+        PPoint pixel = getPPoint(current_node.get_offset(image_width));
+        chain_tree.addPixelToChain(current_chain, pixel);
 
         current_node = next_node;
     }
@@ -513,16 +499,12 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
         if (current_node.node_row - 1 >= 0)
         {
             StackNode up_node(current_node.node_row - 1, current_node.node_column, UP, EDGE_VERTICAL);
-            int offset = up_node.get_offset(image_width);
-            if (validateNode(up_node) && gradOrientationImgPointer[offset] == EDGE_VERTICAL)
-                process_stack.push(up_node);
+            process_stack.push(up_node);
         }
         if (current_node.node_row + 1 < image_height)
         {
             StackNode down_node(current_node.node_row + 1, current_node.node_column, DOWN, EDGE_VERTICAL);
-            int offset = down_node.get_offset(image_width);
-            if (validateNode(down_node) && gradOrientationImgPointer[offset] == EDGE_VERTICAL)
-                process_stack.push(down_node);
+            process_stack.push(down_node);
         }
     }
     else
@@ -531,13 +513,11 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain)
         if (current_node.node_column - 1 >= 0)
         {
             StackNode left_node(current_node.node_row, current_node.node_column - 1, LEFT, EDGE_HORIZONTAL);
-            int offset = left_node.get_offset(image_width);
             process_stack.push(left_node);
         }
         if (current_node.node_column + 1 < image_width)
         {
             StackNode right_node(current_node.node_row, current_node.node_column + 1, RIGHT, EDGE_HORIZONTAL);
-            int offset = right_node.get_offset(image_width);
             process_stack.push(right_node);
         }
     }
