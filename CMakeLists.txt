@@ -21,8 +21,6 @@ add_library(EDLib STATIC
         ED-perso.h
         Chain.cpp
         Chain.h
-        Stack.cpp
-        Stack.h
         NFA.cpp
         NFA.h
         original-ED/original_ED.cpp

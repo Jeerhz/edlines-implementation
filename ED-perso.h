@@ -2,7 +2,6 @@
 
 #include <opencv2/opencv.hpp>
 #include "Chain.h"
-#include "Stack.h"
 
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
