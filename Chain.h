@@ -99,17 +99,14 @@ public:
 
     // Getters
     Chain *getFirstChain() const { return first_chain_root; }
-    int getTotalPixels() const { return total_pixels; }
 
     // Segment extraction
     std::vector<cv::Point> extractSegmentPixels(Chain *chain_head, int min_length);
 
 private:
     Chain *first_chain_root; // Root of the chain tree
-    int total_pixels;        // Total pixels across all chains
     int image_width;
     int image_height;
-    int max_pixels;
 
     // Helper for extracting pixels along longest path
     void extractPixelsRecursive(Chain *node, std::vector<cv::Point> &result, int min_length, bool &first_chain);

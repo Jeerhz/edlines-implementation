@@ -105,19 +105,15 @@ void ProcessStack::clear()
 
 ChainTree::ChainTree(int image_width, int image_height)
     : first_chain_root(nullptr),
-      total_pixels(0),
       image_width(image_width),
       image_height(image_height)
 {
-    max_pixels = image_width * image_height;
 }
 
 ChainTree::ChainTree()
     : first_chain_root(nullptr),
-      total_pixels(0),
       image_width(0),
-      image_height(0),
-      max_pixels(0)
+      image_height(0)
 {
 }
 
@@ -129,7 +125,6 @@ ChainTree::~ChainTree()
         delete first_chain_root;
         first_chain_root = nullptr;
     }
-    total_pixels = 0;
 }
 
 Chain *ChainTree::createNewChain(Direction dir, Chain *parent_chain)
@@ -155,17 +150,15 @@ void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
         return;
 
     chain->pixels.push_back(pixel);
-    total_pixels++;
 }
 
 PPoint ChainTree::PopPixelFromChain(Chain *chain)
 {
-    if (chain == nullptr || total_pixels <= 0)
+    if (chain == nullptr)
         return PPoint();
 
     PPoint pixel = chain->pixels.back();
     chain->pixels.pop_back();
-    total_pixels--;
     return pixel;
 }
 
