@@ -403,6 +403,8 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         //     DEBUG_LOG("Removing short anchor chain starting at (" << anchor.y << ", " << anchor.x << ")");
         //     removeChain(anchor_chain_root);
         // }
+
+        delete anchor_chain_root;
     }
     DEBUG_LOG("Edge at anchor row 274 and col 582 is value: " << (int)edgeImgPointer[274 * image_width + 582]);
     DEBUG_LOG("Edge at (882, 793) is value: " << (int)edgeImgPointer[793 * image_width + 882]);
