@@ -235,6 +235,22 @@ PPoint ED::getPPoint(int offset)
                   (edgeImgPointer[offset] == EDGE_PIXEL));
 }
 
+// Helper to delete a chain tree given a root pointer and nulify it.
+// https://stackoverflow.com/questions/60380985/c-delete-all-nodes-from-binary-tree
+void RemoveAll(Chain *&chain)
+{
+    if (!chain)
+        return;
+
+    DEBUG_LOG("Removing chain with " << chain->pixels.size() << " pixels");
+
+    RemoveAll(chain->first_childChain);
+    RemoveAll(chain->second_childChain);
+
+    delete chain;
+    chain = nullptr;
+}
+
 int *ED::sortAnchorsByGradValue()
 {
     int SIZE = 128 * 256;
@@ -282,13 +298,18 @@ int *ED::sortAnchorsByGradValue()
 
 void setChildToChain(Chain *parent, Chain *child)
 {
-    if (!parent || !child)
+    if (parent == nullptr || child == nullptr)
+    {
+        DEBUG_LOG("ERROR: Cannot set child to chain, parent or child is nullptr");
         return;
+    }
     if (parent->first_childChain == nullptr)
     {
         parent->first_childChain = child;
         return;
     }
+    assert(parent->second_childChain == nullptr && "Second child chain should be nullptr when setting it");
+
     parent->second_childChain = child;
     return;
 }
@@ -311,24 +332,21 @@ bool validateChainLength(Chain *chain, int nb_processed_stacknode_in_anchor_chai
     return (chain->total_length() - nb_processed_stacknode_in_anchor_chain >= min_length);
 }
 
-void ED::removeChain(Chain *chain)
+void ED::revertChainEdgePixel(Chain *&chain)
 {
 
-    if (chain == nullptr)
+    if (!chain)
         return;
 
     while (!chain->pixels.empty())
     {
         PPoint p = chain->pixels.back();
         chain->pixels.pop_back();
-
-        DEBUG_LOG("Removing pixel at (" << p.y << ", " << p.x << ") from edge image");
         edgeImgPointer[p.get_offset(image_width, image_height)] = 0;
     }
 
-    // Call removeChain recursively on child chains
-    removeChain(chain->first_childChain);
-    removeChain(chain->second_childChain);
+    revertChainEdgePixel(chain->first_childChain);
+    revertChainEdgePixel(chain->second_childChain);
 }
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
@@ -336,9 +354,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
     DEBUG_LOG("\n=== Starting JoinAnchorPointsUsingSortedAnchors ===");
     int *SortedAnchors = sortAnchorsByGradValue();
     DEBUG_LOG("Sorted " << anchorNb << " anchors by gradient value");
-
     for (int anchor_index = anchorNb - 1; anchor_index >= 0; anchor_index--)
     {
+        int anchor_iter = 0;
         DEBUG_LOG("Processing anchor " << (anchorNb - anchor_index) << " / " << anchorNb);
         int anchorPixelOffset = SortedAnchors[anchor_index];
         PPoint anchor = getPPoint(anchorPixelOffset);
@@ -355,9 +373,8 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
         // TODO: Keep a track of all chain_tree to flatten later if needed and delete easily all
         Chain *anchor_chain_root = new Chain();
+        assert(anchor_chain_root != nullptr && "Failed to allocate memory for anchor_chain_root");
 
-        // Ensure the process stack is empty before starting
-        (void)process_stack.clear();
         if (anchor.grad_orientation == EDGE_VERTICAL)
         {
             process_stack.push(StackNode(anchor, DOWN, anchor_chain_root));
@@ -372,21 +389,27 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         // First child is set so the first child is left/up and the second one is right/down and then we move down the tree
         while (!process_stack.empty())
         {
-
+            DEBUG_LOG("anchor iteration " << (++anchor_iter) << ", process stack size: " << process_stack.size());
+            DEBUG_LOG("Processing anchor " << (anchorNb - anchor_index) << " / " << anchorNb);
             StackNode currentNode = process_stack.top();
             process_stack.pop();
             DEBUG_LOG(" Exploring from node at (" << currentNode.node_row << ", " << currentNode.node_column << ") in direction " << currentNode.node_direction);
+
+            assert(currentNode.parent_chain != nullptr && "currentNode parent_chain should not be nullptr in exploreChain");
 
             if (edgeImgPointer[currentNode.get_offset(image_width)] != EDGE_PIXEL)
                 nb_duplicate_processed_stacknode_in_anchor_chain++;
 
             // Create chain of pixels for this process stack node and direction
-            Chain *new_process_stack_chain = new Chain();
-            new_process_stack_chain->direction = currentNode.node_direction;
-            new_process_stack_chain->parent_chain = currentNode.parent_chain;
+            // Capture currentNode values so they remain stable even if currentNode is modified later
+            Direction chain_direction = currentNode.node_direction;
+            Chain *chain_parent = currentNode.parent_chain;
+            Chain *new_process_stack_chain = new Chain(chain_direction, chain_parent);
 
             // Explore from the stack node to add more pixels to the chain
             bool has_exploration_finished_on_edge_or_threshold = !exploreChain(currentNode, new_process_stack_chain);
+
+            assert(new_process_stack_chain != nullptr && new_process_stack_chain->parent_chain != nullptr && "Failed to allocate memory for new_process_stack_chain or its parent_chain");
 
             // Set this new chain as a child of its parent chain
             setChildToChain(new_process_stack_chain->parent_chain, new_process_stack_chain);
@@ -398,16 +421,14 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         }
 
         // DEBUG_LOG("Finished processing anchor at (" << anchor.row << ", " << anchor.col << ")");
-        // if (!validateChainLength(anchor_chain_root, 0, minPathLen))
-        // {
-        //     DEBUG_LOG("Removing short anchor chain starting at (" << anchor.y << ", " << anchor.x << ")");
-        //     removeChain(anchor_chain_root);
-        // }
+        if (!validateChainLength(anchor_chain_root, nb_duplicate_processed_stacknode_in_anchor_chain, minPathLen))
+        {
+            DEBUG_LOG("Removing short anchor chain starting at (" << anchor.y << ", " << anchor.x << ")");
+            revertChainEdgePixel(anchor_chain_root);
+        }
 
-        delete anchor_chain_root;
+        RemoveAll(anchor_chain_root);
     }
-    DEBUG_LOG("Edge at anchor row 274 and col 582 is value: " << (int)edgeImgPointer[274 * image_width + 582]);
-    DEBUG_LOG("Edge at (882, 793) is value: " << (int)edgeImgPointer[793 * image_width + 882]);
     delete[] SortedAnchors;
     DEBUG_LOG("\n=== Finished JoinAnchorPointsUsingSortedAnchors ===\n");
 }
@@ -432,6 +453,9 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
     const int row = current_node.node_row;
     const int col = current_node.node_column;
     const Direction dir = current_node.node_direction;
+    DEBUG_LOG("Getting next chain pixel from (" << row << ", " << col << ") in direction " << dir);
+
+    assert(current_node.parent_chain != nullptr && "current_node parent_chain is nullptr in getNextChainPixel");
 
     // Direction offset mapping
     const int dir_offset =
@@ -448,12 +472,8 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
     for (int k = 0; k < 3; ++k)
     {
         const int diff = diffs[k];
+        // No bounds check, the gradresh outside image is set to low values below threshold
         const int neighbor_offset = base_offset + dir_offset + diff * perp_offset;
-
-        // Bounds check
-        if (neighbor_offset < 0 || neighbor_offset >= image_width * image_height)
-            continue;
-
         const uchar neighbor_edge_value = edgeImgPointer[neighbor_offset];
         bool is_neighbor_anchor = (neighbor_edge_value == ANCHOR_PIXEL);
         bool is_neighbor_edge = (neighbor_edge_value == EDGE_PIXEL);
@@ -463,7 +483,7 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
             int nrow = neighbor_offset / image_width;
             int ncol = neighbor_offset % image_width;
             DEBUG_LOG(" Next node is an anchor/edge at (" << nrow << ", " << ncol << ")");
-            return StackNode(nrow, ncol, dir, neighbor_grad_orientation, is_neighbor_anchor, is_neighbor_edge, current_node.parent_chain);
+            return StackNode(nrow, ncol, dir, neighbor_grad_orientation, current_node.parent_chain, is_neighbor_anchor, is_neighbor_edge);
         }
 
         const int grad = gradImgPointer[neighbor_offset];
@@ -478,7 +498,7 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
     const int next_col = best_offset % image_width;
     GradOrientation next_grad_orientation = gradOrientationImgPointer[best_offset];
 
-    return StackNode(next_row, next_col, dir, next_grad_orientation, false, false, current_node.parent_chain);
+    return StackNode(next_row, next_col, dir, next_grad_orientation, current_node.parent_chain, false, false);
 }
 
 bool ED::validateNode(StackNode &node)
@@ -500,6 +520,8 @@ bool ED::validateNode(StackNode &node)
  */
 bool ED::exploreChain(StackNode &current_node, Chain *current_chain)
 {
+
+    assert(current_chain != nullptr);
     GradOrientation chain_orientation = current_chain->direction == LEFT || current_chain->direction == RIGHT ? EDGE_HORIZONTAL : EDGE_VERTICAL;
     // Explore until we find change direction or we hit an edge pixel or the gradient is below threshold
     while (gradOrientationImgPointer[current_node.get_offset(image_width)] == chain_orientation)
@@ -523,20 +545,14 @@ bool ED::exploreChain(StackNode &current_node, Chain *current_chain)
     if (chain_orientation == EDGE_HORIZONTAL)
     {
         // Add UP and DOWN for horizontal chains
-        StackNode down_node(current_node.node_row, current_node.node_column, DOWN, EDGE_VERTICAL, current_chain);
-        process_stack.push(down_node);
-
-        StackNode up_node(current_node.node_row, current_node.node_column, UP, EDGE_VERTICAL, current_chain);
-        process_stack.push(up_node);
+        process_stack.push(StackNode(current_node.node_row, current_node.node_column, DOWN, EDGE_VERTICAL, current_chain));
+        process_stack.push(StackNode(current_node.node_row, current_node.node_column, UP, EDGE_VERTICAL, current_chain));
     }
     else
     {
         // Add LEFT and RIGHT for vertical chains
-        StackNode right_node(current_node.node_row, current_node.node_column, RIGHT, EDGE_HORIZONTAL, current_chain);
-        process_stack.push(right_node);
-
-        StackNode left_node(current_node.node_row, current_node.node_column, LEFT, EDGE_HORIZONTAL, current_chain);
-        process_stack.push(left_node);
+        process_stack.push(StackNode(current_node.node_row, current_node.node_column, RIGHT, EDGE_HORIZONTAL, current_chain));
+        process_stack.push(StackNode(current_node.node_row, current_node.node_column, LEFT, EDGE_HORIZONTAL, current_chain));
     }
     return true;
 }

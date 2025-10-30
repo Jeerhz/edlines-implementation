@@ -50,7 +50,7 @@ private:
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);
     StackNode getNextChainPixel(StackNode &current_node);
     bool validateNode(StackNode &node);
-    void removeChain(Chain *chain);
+    void revertChainEdgePixel(Chain *&chain);
 
     int anchorNb;
     std::vector<cv::Point> anchorPoints;
