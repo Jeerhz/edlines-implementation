@@ -395,7 +395,6 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             }
         }
 
-        // TODO: Fix this
         // DEBUG_LOG("Finished processing anchor at (" << anchor.row << ", " << anchor.col << ")");
         // if (!validateChainLength(anchor_chain_root, 0, minPathLen))
         // {

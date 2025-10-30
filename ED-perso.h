@@ -48,7 +48,7 @@ private:
     int *sortAnchorsByGradValue();
 
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);
-    StackNode getNextNode(StackNode &current_node);
+    StackNode getNextChainPixel(StackNode &current_node);
     bool validateNode(StackNode &node);
     void removeChain(Chain *chain);
 
