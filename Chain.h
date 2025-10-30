@@ -54,8 +54,6 @@ struct Chain
 
     // Tree traversal and analysis
     int total_length(); // Total length of this chain and its children
-
-    void addPixel(const PPoint &pixel);
 };
 
 class StackNode

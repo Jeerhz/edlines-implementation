@@ -41,11 +41,6 @@ int Chain::total_length()
     return total;
 }
 
-void Chain::addPixel(const PPoint &pixel)
-{
-    pixels.push_back(pixel);
-}
-
 PPoint::PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor, bool _is_edge)
     : cv::Point(_col, _row), is_anchor(_is_anchor), is_edge(_is_edge), grad_orientation(_grad_orientation)
 {

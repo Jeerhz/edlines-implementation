@@ -66,5 +66,4 @@ private:
     int anchorThresh; // anchor point threshold
     int scanInterval;
     bool sumFlag; // flag for using sum of terms to compute gradient magnitude
-    ChainTree chain_tree;
 };

@@ -24,7 +24,6 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     minPathLen = _minPathLen;
     sigma = _sigma;
     sumFlag = _sumFlag;
-    chain_tree = ChainTree(image_width, image_height);
     process_stack = ProcessStack();
     edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0));
     smoothImage = Mat(image_height, image_width, CV_8UC1);
@@ -320,7 +319,9 @@ void ED::removeChain(Chain *chain)
 
     while (!chain->pixels.empty())
     {
-        PPoint p = chain_tree.PopPixelFromChain(chain);
+        PPoint p = chain->pixels.back();
+        chain->pixels.pop_back();
+
         DEBUG_LOG("Removing pixel at (" << p.y << ", " << p.x << ") from edge image");
         edgeImgPointer[p.get_offset(image_width, image_height)] = 0;
     }
@@ -352,9 +353,8 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         // We count this pixel for two different directions
         int nb_duplicate_processed_stacknode_in_anchor_chain = 0;
 
-        // TODO: We may create a 'chain tree' for each anchor
         // TODO: Keep a track of all chain_tree to flatten later if needed and delete easily all
-        Chain *anchor_chain_root = chain_tree.createNewChain(UNDEFINED, nullptr);
+        Chain *anchor_chain_root = new Chain();
 
         // Ensure the process stack is empty before starting
         (void)process_stack.clear();
@@ -381,7 +381,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 nb_duplicate_processed_stacknode_in_anchor_chain++;
 
             // Create chain of pixels for this process stack node and direction
-            Chain *new_process_stack_chain = chain_tree.createNewChain(currentNode.node_direction, currentNode.parent_chain);
+            Chain *new_process_stack_chain = new Chain();
+            new_process_stack_chain->direction = currentNode.node_direction;
+            new_process_stack_chain->parent_chain = currentNode.parent_chain;
 
             // Explore from the stack node to add more pixels to the chain
             bool has_exploration_finished_on_edge_or_threshold = !exploreChain(currentNode, new_process_stack_chain);
@@ -503,7 +505,7 @@ bool ED::exploreChain(StackNode &current_node, Chain *current_chain)
         // Add the current pixel to the chain
         PPoint pixel = getPPoint(current_node.get_offset(image_width));
         DEBUG_LOG("Adding pixel at (" << pixel.row << ", " << pixel.col << ") to chain");
-        chain_tree.addPixelToChain(current_chain, pixel);
+        current_chain->pixels.push_back(pixel);
 
         edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
         cleanUpSurroundingAnchorPixels(current_node);
