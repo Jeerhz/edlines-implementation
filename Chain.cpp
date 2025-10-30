@@ -6,6 +6,7 @@ using namespace cv;
 
 Chain::Chain()
 {
+    pixels = std::vector<PPoint>();
     parent_chain = nullptr;
     first_childChain = nullptr;
     second_childChain = nullptr;
@@ -27,17 +28,17 @@ Chain::~Chain()
     }
 }
 
-int Chain::total_length(int current_length)
+int Chain::total_length()
 {
-    int total_length = current_length + pixels.size();
+    int total = static_cast<int>(pixels.size());
 
     if (first_childChain != nullptr)
-        total_length += first_childChain->total_length(total_length);
+        total += first_childChain->total_length();
 
     if (second_childChain != nullptr)
-        total_length += second_childChain->total_length(total_length);
+        total += second_childChain->total_length();
 
-    return total_length;
+    return total;
 }
 
 PPoint::PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor, bool _is_edge)
@@ -146,9 +147,7 @@ Chain *ChainTree::createNewChain(Direction dir, Chain *parent_chain)
 
 void ChainTree::addPixelToChain(Chain *chain, const PPoint &pixel)
 {
-    if (chain == nullptr)
-        return;
-
+    assert(chain != nullptr);
     chain->pixels.push_back(pixel);
 }
 
