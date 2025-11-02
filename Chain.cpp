@@ -19,14 +19,6 @@ Chain::~Chain()
 {
 }
 
-int Chain::total_nb_of_chains()
-{
-    // Count this node + children (guard for nullptr children)
-    int left_count = first_childChain ? first_childChain->total_nb_of_chains() : 0;
-    int right_count = second_childChain ? second_childChain->total_nb_of_chains() : 0;
-    return 1 + left_count + right_count;
-}
-
 int Chain::total_length()
 {
     int left_len = first_childChain ? first_childChain->total_length() : 0;

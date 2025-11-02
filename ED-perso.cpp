@@ -8,7 +8,7 @@
 using namespace cv;
 using namespace std;
 
-ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval, int _minPathLen, double _sigma, bool _sumFlag)
+ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, double _sigma, bool _sumFlag)
 {
     assert(_gradThresh >= 1 && "Gradient threshold must be >= 1");
     assert(_anchorThresh >= 0 && "Anchor threshold must be >= 0");
@@ -19,7 +19,6 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     image_width = srcImage.cols;
     gradThresh = _gradThresh;
     anchorThresh = _anchorThresh;
-    scanInterval = _scanInterval;
     minPathLen = _minPathLen;
     sigma = _sigma;
     sumFlag = _sumFlag;
@@ -44,10 +43,6 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     JoinAnchorPointsUsingSortedAnchors();
 
     delete[] gradOrientationImgPointer;
-    // Why this provoke double free errors ?
-    // delete[] smoothImgPointer;
-    // delete[] gradImgPointer;
-    // delete[] edgeImgPointer;
 }
 
 ED::ED(const ED &cpyObj)
@@ -153,13 +148,8 @@ void ED::ComputeAnchorPoints()
     {
         int start = 2;
         int inc = 1;
-        if (i % scanInterval != 0)
-        {
-            start = scanInterval;
-            inc = scanInterval;
-        }
 
-        for (int j = start; j < image_width - 2; j += inc)
+        for (int j = start; j < image_width - 2; j++)
         {
             if (gradImgPointer[i * image_width + j] < gradThresh)
                 continue;
@@ -439,7 +429,6 @@ bool ED::validateNode(StackNode &node)
 void ED::exploreChain(StackNode &current_node, Chain *current_chain)
 {
 
-    assert(current_chain != nullptr);
     GradOrientation chain_orientation = current_chain->direction == LEFT || current_chain->direction == RIGHT ? EDGE_HORIZONTAL : EDGE_VERTICAL;
     // Explore until we find change direction or we hit an edge pixel or the gradient is below threshold
     while (gradOrientationImgPointer[current_node.get_offset(image_width)] == chain_orientation)

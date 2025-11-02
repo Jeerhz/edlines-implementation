@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     // New ED
     tm.reset();
     tm.start();
-    ED testED = ED(testImg, 36, 8, 1, 10, 1.0, true);
+    ED testED = ED(testImg, 36, 8, 10, 1.0, true);
     tm.stop();
     double newEdTime = tm.getTimeMilli();
     std::cout << "New ED Implementation          : " << newEdTime << " ms" << endl;

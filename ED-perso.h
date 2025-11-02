@@ -10,7 +10,7 @@ class ED
 {
 
 public:
-    ED(cv::Mat _srcImage, int _gradThresh = 20, int _anchorThresh = 0, int _scanInterval = 1, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
+    ED(cv::Mat _srcImage, int _gradThresh = 20, int _anchorThresh = 0, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
     ED(const ED &cpyObj);
     ED();
 
@@ -62,6 +62,5 @@ private:
 
     int gradThresh;   // gradient threshold
     int anchorThresh; // anchor point threshold
-    int scanInterval;
-    bool sumFlag; // flag for using sum of terms to compute gradient magnitude
+    bool sumFlag;     // flag for using sum of terms to compute gradient magnitude
 };
