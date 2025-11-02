@@ -10,7 +10,6 @@ using namespace std;
 
 ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval, int _minPathLen, double _sigma, bool _sumFlag)
 {
-    DEBUG_LOG("=== ED Constructor Started ===");
     assert(_gradThresh >= 1 && "Gradient threshold must be >= 1");
     assert(_anchorThresh >= 0 && "Anchor threshold must be >= 0");
     assert(_sigma >= 0 && "Sigma must be >= 0");
@@ -30,60 +29,29 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _scanInterval,
     gradImage = Mat(image_height, image_width, CV_16SC1);
     srcImgPointer = srcImage.data;
 
-    DEBUG_LOG("--- Step 1: Gaussian Smoothing ---");
     if (sigma == 1.0)
         GaussianBlur(srcImage, smoothImage, Size(5, 5), sigma);
     else
         GaussianBlur(srcImage, smoothImage, Size(), sigma);
-    DEBUG_LOG("Gaussian smoothing completed. ");
 
     smoothImgPointer = smoothImage.data;
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
     gradOrientationImgPointer = new GradOrientation[image_width * image_height];
 
-    DEBUG_LOG("--- Step 2: Computing Gradient ---");
     ComputeGradient();
-    DEBUG_LOG("Gradient computation completed. ");
-
-    DEBUG_LOG("--- Step 3: Computing Anchor Points ---");
     ComputeAnchorPoints();
-    DEBUG_LOG("Anchor point computation completed. ");
-    DEBUG_LOG("Total anchors found: " << anchorNb);
-
-    DEBUG_LOG("--- Step 4: Joining Anchor Points ---");
     JoinAnchorPointsUsingSortedAnchors();
-    DEBUG_LOG("Anchor joining completed. ");
 
     delete[] gradOrientationImgPointer;
     // Why this provoke double free errors ?
     // delete[] smoothImgPointer;
     // delete[] gradImgPointer;
     // delete[] edgeImgPointer;
-    DEBUG_LOG("=== ED Constructor Completed ===\n");
 }
 
 ED::ED(const ED &cpyObj)
 {
-    DEBUG_LOG("=== ED Copy Constructor Started ===");
-    image_height = cpyObj.image_height;
-    image_width = cpyObj.image_width;
-    srcImage = cpyObj.srcImage.clone();
-    gradThresh = cpyObj.gradThresh;
-    anchorThresh = cpyObj.anchorThresh;
-    scanInterval = cpyObj.scanInterval;
-    minPathLen = cpyObj.minPathLen;
-    sigma = cpyObj.sigma;
-    sumFlag = cpyObj.sumFlag;
-    edgeImage = cpyObj.edgeImage.clone();
-    smoothImage = cpyObj.smoothImage.clone();
-    gradImage = cpyObj.gradImage.clone();
-    srcImgPointer = srcImage.data;
-    smoothImgPointer = smoothImage.data;
-    gradImgPointer = (short *)gradImage.data;
-    edgeImgPointer = edgeImage.data;
-    segmentPoints = cpyObj.segmentPoints;
-    DEBUG_LOG("=== ED Copy Constructor Completed ===\n");
 }
 
 ED::ED()
@@ -127,8 +95,6 @@ vector<Point> ED::getAnchorPoints()
 
 void ED::ComputeGradient()
 {
-    DEBUG_LOG("ComputeGradient() started");
-
     // Set borders to below threshold
     for (int col_index = 0; col_index < image_width; col_index++)
     {
@@ -165,7 +131,6 @@ void ED::ComputeGradient()
             }
         }
     }
-    DEBUG_LOG("Gradient computation completed. Pixels above threshold: " << pixels_above_threshold);
 }
 
 /**
@@ -222,8 +187,6 @@ void ED::ComputeAnchorPoints()
         }
     }
     anchorNb = anchorPoints.size();
-
-    DEBUG_LOG("ComputeAnchorPoints() completed. Anchors: " << anchorNb);
 }
 
 PPoint ED::getPPoint(int offset)
@@ -241,8 +204,6 @@ void RemoveAll(Chain *&chain)
 {
     if (!chain)
         return;
-
-    DEBUG_LOG("Removing chain with " << chain->pixels.size() << " pixels");
 
     RemoveAll(chain->first_childChain);
     RemoveAll(chain->second_childChain);
@@ -298,18 +259,15 @@ int *ED::sortAnchorsByGradValue()
 
 void setChildToChain(Chain *parent, Chain *child)
 {
-    if (parent == nullptr || child == nullptr)
-    {
-        DEBUG_LOG("ERROR: Cannot set child to chain, parent or child is nullptr");
-        return;
-    }
+    assert(!(parent == nullptr || child == nullptr) && "Parent or child chain is nullptr in setChildToChain");
+
     if (parent->first_childChain == nullptr)
     {
         parent->first_childChain = child;
         return;
     }
-    assert(parent->second_childChain == nullptr && "Second child chain should be nullptr when setting it");
 
+    assert(parent->second_childChain == nullptr && "Second child chain should be nullptr when setting it");
     parent->second_childChain = child;
     return;
 }
@@ -328,7 +286,6 @@ bool validateChainLength(Chain *chain, int nb_processed_stacknode_in_anchor_chai
 
     int total_length = chain->total_length();
     assert(total_length > 0);
-    DEBUG_LOG("Validating chain length: total_length = " << total_length << ", processed_stacknodes_in_anchor_chain = " << nb_processed_stacknode_in_anchor_chain << ", min_length = " << min_length);
     return (chain->total_length() - nb_processed_stacknode_in_anchor_chain >= min_length);
 }
 
@@ -351,29 +308,20 @@ void ED::revertChainEdgePixel(Chain *&chain)
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
 {
-    DEBUG_LOG("\n=== Starting JoinAnchorPointsUsingSortedAnchors ===");
     int *SortedAnchors = sortAnchorsByGradValue();
-    DEBUG_LOG("Sorted " << anchorNb << " anchors by gradient value");
     for (int anchor_index = anchorNb - 1; anchor_index >= 0; anchor_index--)
     {
-        int anchor_iter = 0;
-        DEBUG_LOG("Processing anchor " << (anchorNb - anchor_index) << " / " << anchorNb);
         int anchorPixelOffset = SortedAnchors[anchor_index];
         PPoint anchor = getPPoint(anchorPixelOffset);
 
         // Skip if already processed
         if (edgeImgPointer[anchorPixelOffset] != ANCHOR_PIXEL)
-        {
-            DEBUG_LOG("Skipping already processed anchor at (" << anchor.y << ", " << anchor.x << ")");
             continue;
-        }
 
-        // We count this pixel for two different directions
         int nb_duplicate_processed_stacknode_in_anchor_chain = 0;
 
-        // TODO: Keep a track of all chain_tree to flatten later if needed and delete easily all
+        // TODO: Keep a track of all anchor_chains to flatten later if needed
         Chain *anchor_chain_root = new Chain();
-        assert(anchor_chain_root != nullptr && "Failed to allocate memory for anchor_chain_root");
 
         if (anchor.grad_orientation == EDGE_VERTICAL)
         {
@@ -386,51 +334,28 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
             process_stack.push(StackNode(anchor, LEFT, anchor_chain_root));
         }
 
-        // First child is set so the first child is left/up and the second one is right/down and then we move down the tree
         while (!process_stack.empty())
         {
-            DEBUG_LOG("anchor iteration " << (++anchor_iter) << ", process stack size: " << process_stack.size());
-            DEBUG_LOG("Processing anchor " << (anchorNb - anchor_index) << " / " << anchorNb);
             StackNode currentNode = process_stack.top();
             process_stack.pop();
-            DEBUG_LOG(" Exploring from node at (" << currentNode.node_row << ", " << currentNode.node_column << ") in direction " << currentNode.node_direction);
 
-            assert(currentNode.parent_chain != nullptr && "currentNode parent_chain should not be nullptr in exploreChain");
-
+            // processed stack pixel is part of two chains in opposite directions, we track duplicates
             if (edgeImgPointer[currentNode.get_offset(image_width)] != EDGE_PIXEL)
                 nb_duplicate_processed_stacknode_in_anchor_chain++;
 
-            // Create chain of pixels for this process stack node and direction
-            // Capture currentNode values so they remain stable even if currentNode is modified later
-            Direction chain_direction = currentNode.node_direction;
-            Chain *chain_parent = currentNode.parent_chain;
-            Chain *new_process_stack_chain = new Chain(chain_direction, chain_parent);
+            Chain *new_process_stack_chain = new Chain(currentNode.node_direction, currentNode.parent_chain);
 
-            // Explore from the stack node to add more pixels to the chain
-            bool has_exploration_finished_on_edge_or_threshold = !exploreChain(currentNode, new_process_stack_chain);
-
-            assert(new_process_stack_chain != nullptr && new_process_stack_chain->parent_chain != nullptr && "Failed to allocate memory for new_process_stack_chain or its parent_chain");
-
-            // Set this new chain as a child of its parent chain
+            // Explore from the stack node to add more pixels to the new created chain
+            exploreChain(currentNode, new_process_stack_chain);
             setChildToChain(new_process_stack_chain->parent_chain, new_process_stack_chain);
-            if (has_exploration_finished_on_edge_or_threshold)
-            {
-                DEBUG_LOG("Finished exploring and arrived at edge or gradient threshold.");
-                continue;
-            }
         }
 
-        // DEBUG_LOG("Finished processing anchor at (" << anchor.row << ", " << anchor.col << ")");
         if (!validateChainLength(anchor_chain_root, nb_duplicate_processed_stacknode_in_anchor_chain, minPathLen))
-        {
-            DEBUG_LOG("Removing short anchor chain starting at (" << anchor.y << ", " << anchor.x << ")");
             revertChainEdgePixel(anchor_chain_root);
-        }
 
         RemoveAll(anchor_chain_root);
     }
     delete[] SortedAnchors;
-    DEBUG_LOG("\n=== Finished JoinAnchorPointsUsingSortedAnchors ===\n");
 }
 
 // Clean pixel perpendicular to edge direction
@@ -453,9 +378,6 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
     const int row = current_node.node_row;
     const int col = current_node.node_column;
     const Direction dir = current_node.node_direction;
-    DEBUG_LOG("Getting next chain pixel from (" << row << ", " << col << ") in direction " << dir);
-
-    assert(current_node.parent_chain != nullptr && "current_node parent_chain is nullptr in getNextChainPixel");
 
     // Direction offset mapping
     const int dir_offset =
@@ -477,13 +399,11 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
         const uchar neighbor_edge_value = edgeImgPointer[neighbor_offset];
         bool is_neighbor_anchor = (neighbor_edge_value == ANCHOR_PIXEL);
         bool is_neighbor_edge = (neighbor_edge_value == EDGE_PIXEL);
-        GradOrientation neighbor_grad_orientation = gradOrientationImgPointer[neighbor_offset];
         if (is_neighbor_anchor || is_neighbor_edge)
         {
             int nrow = neighbor_offset / image_width;
             int ncol = neighbor_offset % image_width;
-            DEBUG_LOG(" Next node is an anchor/edge at (" << nrow << ", " << ncol << ")");
-            return StackNode(nrow, ncol, dir, neighbor_grad_orientation, current_node.parent_chain, is_neighbor_anchor, is_neighbor_edge);
+            return StackNode(nrow, ncol, dir, gradOrientationImgPointer[neighbor_offset], current_node.parent_chain, is_neighbor_anchor, is_neighbor_edge);
         }
 
         const int grad = gradImgPointer[neighbor_offset];
@@ -496,16 +416,14 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
 
     const int next_row = best_offset / image_width;
     const int next_col = best_offset % image_width;
-    GradOrientation next_grad_orientation = gradOrientationImgPointer[best_offset];
 
-    return StackNode(next_row, next_col, dir, next_grad_orientation, current_node.parent_chain, false, false);
+    return StackNode(next_row, next_col, dir, gradOrientationImgPointer[best_offset], current_node.parent_chain, false, false);
 }
 
 bool ED::validateNode(StackNode &node)
 {
     bool is_edge_pixel = (edgeImgPointer[node.get_offset(image_width)] == EDGE_PIXEL);
     bool below_threshold = (gradImgPointer[node.get_offset(image_width)] < gradThresh);
-    DEBUG_LOG(" Validating node at (" << node.node_row << ", " << node.node_column << "): is_edge_pixel=" << is_edge_pixel << ", below_threshold=" << below_threshold);
     return !(is_edge_pixel || below_threshold);
 }
 
@@ -518,7 +436,7 @@ bool ED::validateNode(StackNode &node)
  * @param current_node  Reference to the starting StackNode for chain exploration.
  * @param current_chain Pointer to the Chain being populated with chain pixels.
  */
-bool ED::exploreChain(StackNode &current_node, Chain *current_chain)
+void ED::exploreChain(StackNode &current_node, Chain *current_chain)
 {
 
     assert(current_chain != nullptr);
@@ -526,19 +444,15 @@ bool ED::exploreChain(StackNode &current_node, Chain *current_chain)
     // Explore until we find change direction or we hit an edge pixel or the gradient is below threshold
     while (gradOrientationImgPointer[current_node.get_offset(image_width)] == chain_orientation)
     {
-        // Add the current pixel to the chain
         PPoint pixel = getPPoint(current_node.get_offset(image_width));
-        DEBUG_LOG("Adding pixel at (" << pixel.row << ", " << pixel.col << ") to chain");
         current_chain->pixels.push_back(pixel);
-
         edgeImgPointer[current_node.get_offset(image_width)] = EDGE_PIXEL;
         cleanUpSurroundingAnchorPixels(current_node);
 
-        // Move to next node in the current direction
         current_node = getNextChainPixel(current_node);
 
         if (!validateNode(current_node))
-            return false;
+            return;
     }
 
     // We add new nodes to the process stack in perpendicular directions to the edge with reference to this chain as a parent
@@ -554,5 +468,4 @@ bool ED::exploreChain(StackNode &current_node, Chain *current_chain)
         process_stack.push(StackNode(current_node.node_row, current_node.node_column, RIGHT, EDGE_HORIZONTAL, current_chain));
         process_stack.push(StackNode(current_node.node_row, current_node.node_column, LEFT, EDGE_HORIZONTAL, current_chain));
     }
-    return true;
 }

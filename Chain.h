@@ -20,17 +20,16 @@ enum GradOrientation
     EDGE_UNDEFINED = -1
 };
 
-struct PPoint : public cv::Point
+// Pixel Point structure
+struct PPoint
 {
     PPoint()
-        : cv::Point(), is_anchor(false), is_edge(false),
+        : is_anchor(false), is_edge(false),
           row(0), col(0), grad_orientation(EDGE_UNDEFINED)
     {
     }
 
     PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor = false, bool _is_edge = false);
-
-    cv::Point toPoint();
 
     bool is_anchor;
     bool is_edge;

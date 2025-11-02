@@ -6,8 +6,6 @@
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
 
-#define DEBUG_LOG(msg) std::cout << "[DEBUG] " << msg << std::endl
-
 class ED
 {
 
@@ -44,7 +42,7 @@ private:
     void ComputeGradient();
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
-    bool exploreChain(StackNode &current_node, Chain *current_chain);
+    void exploreChain(StackNode &current_node, Chain *current_chain);
     int *sortAnchorsByGradValue();
 
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);

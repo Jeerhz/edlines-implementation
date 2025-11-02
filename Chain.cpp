@@ -35,18 +35,13 @@ int Chain::total_length()
 }
 
 PPoint::PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor, bool _is_edge)
-    : cv::Point(_col, _row), is_anchor(_is_anchor), is_edge(_is_edge), grad_orientation(_grad_orientation)
+    : is_anchor(_is_anchor), is_edge(_is_edge), grad_orientation(_grad_orientation)
 {
     row = _row;
     col = _col;
     grad_orientation = _grad_orientation;
     is_anchor = _is_anchor;
     is_edge = _is_edge;
-}
-
-cv::Point PPoint::toPoint()
-{
-    return cv::Point(col, row);
 }
 
 int PPoint::get_offset(int image_width, int image_height) const
