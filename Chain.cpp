@@ -80,8 +80,5 @@ GradOrientation StackNode::get_grad_orientation()
 
 void ProcessStack::clear()
 {
-    while (!this->empty())
-    {
-        this->pop();
-    }
+    std::stack<StackNode>().swap(*this);
 }

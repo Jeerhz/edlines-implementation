@@ -362,52 +362,49 @@ void ED::cleanUpSurroundingAnchorPixels(StackNode &current_node)
         edgeImgPointer[offset + offset_diff] = 0;
 }
 
-// TODO: Do not use division and put the offset on x and y ?
+// We do not use offset so we keep rows and columns and avoid division
 StackNode ED::getNextChainPixel(StackNode &current_node)
 {
     const int row = current_node.node_row;
     const int col = current_node.node_column;
     const Direction dir = current_node.node_direction;
 
-    // Direction offset mapping
-    const int dir_offset =
-        (dir == UP) ? -image_width : (dir == DOWN) ? image_width
-                                 : (dir == LEFT)   ? -1
-                                                   : 1; // RIGHT
+    // Direction unit step (dr, dc)
+    int neighbor_row_diff, neighbor_col_diff;
+    neighbor_row_diff = (dir == UP) ? -1 : (dir == DOWN) ? 1
+                                                         : 0;
 
-    // Perpendicular step (+/-1 col for vertical dirs, +/-width for horizontal dirs)
-    const int perp_offset = (dir == LEFT || dir == RIGHT) ? image_width : 1;
+    neighbor_col_diff = (dir == LEFT) ? -1 : (dir == RIGHT) ? 1
+                                                            : 0;
 
-    int best_grad = -1, best_offset = -1;
-    const int base_offset = current_node.get_offset(image_width);
-    const int diffs[3] = {0, 1, -1};
+    int best_grad = -1;
+    int best_row = -1, best_col = -1;
+
+    const int perpendicular_diffs[3] = {0, 1, -1};
     for (int k = 0; k < 3; ++k)
     {
-        const int diff = diffs[k];
-        // No bounds check, the gradresh outside image is set to low values below threshold
-        const int neighbor_offset = base_offset + dir_offset + diff * perp_offset;
+        const int perpendicular_diff = perpendicular_diffs[k];
+
+        // Perpendicular component: for vertical movement it's a column shift, for horizontal it's a row shift
+        int neighbor_row = row + neighbor_row_diff + ((dir == LEFT || dir == RIGHT) ? perpendicular_diff : 0);
+        int neighbor_col = col + neighbor_col_diff + ((dir == LEFT || dir == RIGHT) ? 0 : perpendicular_diff);
+
+        const int neighbor_offset = neighbor_row * image_width + neighbor_col;
         const uchar neighbor_edge_value = edgeImgPointer[neighbor_offset];
-        bool is_neighbor_anchor = (neighbor_edge_value == ANCHOR_PIXEL);
-        bool is_neighbor_edge = (neighbor_edge_value == EDGE_PIXEL);
+        bool is_neighbor_anchor = (neighbor_edge_value == ANCHOR_PIXEL), is_neighbor_edge = (neighbor_edge_value == EDGE_PIXEL);
         if (is_neighbor_anchor || is_neighbor_edge)
-        {
-            int nrow = neighbor_offset / image_width;
-            int ncol = neighbor_offset % image_width;
-            return StackNode(nrow, ncol, dir, gradOrientationImgPointer[neighbor_offset], current_node.parent_chain, is_neighbor_anchor, is_neighbor_edge);
-        }
+            return StackNode(neighbor_row, neighbor_col, dir, gradOrientationImgPointer[neighbor_offset], current_node.parent_chain, is_neighbor_anchor, is_neighbor_edge);
 
         const int grad = gradImgPointer[neighbor_offset];
         if (grad > best_grad)
         {
             best_grad = grad;
-            best_offset = neighbor_offset;
+            best_row = neighbor_row;
+            best_col = neighbor_col;
         }
     }
 
-    const int next_row = best_offset / image_width;
-    const int next_col = best_offset % image_width;
-
-    return StackNode(next_row, next_col, dir, gradOrientationImgPointer[best_offset], current_node.parent_chain, false, false);
+    return StackNode(best_row, best_col, dir, gradOrientationImgPointer[best_row * image_width + best_col], current_node.parent_chain, false, false);
 }
 
 bool ED::validateNode(StackNode &node)

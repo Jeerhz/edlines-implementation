@@ -79,6 +79,7 @@ public:
     GradOrientation get_grad_orientation();
 };
 
+// https://stackoverflow.com/questions/40201711/how-can-i-clear-a-stack-in-c-efficiently
 struct ProcessStack : std::stack<StackNode>
 {
     ProcessStack() : std::stack<StackNode>() {}
