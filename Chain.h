@@ -47,8 +47,6 @@ public:
 
     StackNode(int offset, Direction direction, Chain *parent_chain);
 
-    GradOrientation get_grad_orientation();
-
 private:
     int image_width;
 };

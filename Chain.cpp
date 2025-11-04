@@ -35,11 +35,6 @@ StackNode::StackNode(int _offset, Direction direction, Chain *_parent_chain)
     parent_chain = _parent_chain;
 }
 
-GradOrientation StackNode::get_grad_orientation()
-{
-    return (node_direction == LEFT || node_direction == RIGHT) ? EDGE_HORIZONTAL : EDGE_VERTICAL;
-}
-
 void ProcessStack::clear()
 {
     std::stack<StackNode>().swap(*this);
