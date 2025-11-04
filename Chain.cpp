@@ -44,33 +44,12 @@ int PPoint::get_offset(int image_width, int image_height) const
 }
 
 // StackNode implementation
-StackNode::StackNode(int row, int column, Direction direction, GradOrientation grad_orientation, Chain *_parent_chain, bool _is_anchor, bool _is_edge)
+StackNode::StackNode(int _offset, Direction direction, Chain *_parent_chain)
 {
     assert(_parent_chain != nullptr && "parent_chain should not be nullptr in StackNode constructor");
-    node_row = row;
-    node_column = column;
+    offset = _offset;
     node_direction = direction;
-    grad_orientation = grad_orientation;
-    is_anchor = _is_anchor;
-    is_edge = _is_edge;
     parent_chain = _parent_chain;
-}
-
-StackNode::StackNode(PPoint &p, Direction direction, Chain *_parent_chain)
-{
-    assert(_parent_chain != nullptr && "parent_chain should not be nullptr in StackNode constructor");
-    node_row = p.row;
-    node_column = p.col;
-    node_direction = direction;
-    grad_orientation = p.grad_orientation;
-    is_anchor = p.is_anchor;
-    is_edge = p.is_edge;
-    parent_chain = _parent_chain;
-}
-
-int StackNode::get_offset(int image_width)
-{
-    return node_row * image_width + node_column;
 }
 
 GradOrientation StackNode::get_grad_orientation()

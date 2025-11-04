@@ -42,41 +42,40 @@ struct PPoint
 
 struct Chain
 {
-    std::vector<PPoint> pixels; // Pixels in this chain segment
-    Chain *const parent_chain;  // Pointer to parent chain (never changes after init)
-    Chain *first_childChain;    // Pointer to left/up child chain
-    Chain *second_childChain;   // Pointer to right/down child chain
-    const Direction direction;  // Direction of this chain (never changes after init)
+    std::vector<int> pixels;   // Pixels in this chain segment, the value corresponds to the offset
+    Chain *const parent_chain; // Pointer to parent chain (never changes after init)
+    Chain *first_childChain;   // Pointer to left/up child chain
+    Chain *second_childChain;  // Pointer to right/down child chain
+    const Direction direction; // Direction of this chain (never changes after init)
 
     Chain();
     Chain(Direction _direction, Chain *_parent_chain);
     ~Chain();
+
+    // Tree traversal and analysis
+    int total_length(); // Total length of this chain and its children
 
     // Disable copy/assignment to avoid accidental modification of const members
     Chain(const Chain &) = delete;
     Chain &operator=(const Chain &) = delete;
 
     int total_nb_of_chains();
-    // Tree traversal and analysis
-    int total_length(); // Total length of this chain and its children
 };
 
 class StackNode
 {
 public:
-    int node_row;
-    int node_column;
+    int offset;
     Chain *parent_chain;
-    bool is_anchor;
-    bool is_edge;
     Direction node_direction;         // Direction of exploration
     GradOrientation grad_orientation; // Gradient orientation at this node
 
-    StackNode(int row, int column, Direction direction, GradOrientation grad_orientation, Chain *parent_chain, bool is_anchor = false, bool is_edge = false);
-    StackNode(PPoint &p, Direction direction, Chain *parent_chain);
+    StackNode(int offset, Direction direction, Chain *parent_chain);
 
-    int get_offset(int image_width);
     GradOrientation get_grad_orientation();
+
+private:
+    int image_width;
 };
 
 // https://stackoverflow.com/questions/40201711/how-can-i-clear-a-stack-in-c-efficiently
