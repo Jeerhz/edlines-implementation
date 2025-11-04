@@ -19,17 +19,9 @@ Chain::~Chain()
 {
 }
 
-// int Chain::total_length()
-// {
-//     int left_len = first_childChain ? first_childChain->total_length() : 0;
-//     int right_len = second_childChain ? second_childChain->total_length() : 0;
-//     return pixels.size() + left_len + right_len;
-// }
-
 // StackNode implementation
 StackNode::StackNode(int _offset, Direction direction, Chain *_parent_chain)
 {
-    assert(_parent_chain != nullptr && "parent_chain should not be nullptr in StackNode constructor");
     offset = _offset;
     node_direction = direction;
     parent_chain = _parent_chain;

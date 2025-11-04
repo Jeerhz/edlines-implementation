@@ -31,10 +31,6 @@ struct Chain
     Chain();
     Chain(Direction _direction, Chain *_parent_chain);
     ~Chain();
-
-    // Disable copy/assignment to avoid accidental modification of const members
-    Chain(const Chain &) = delete;
-    Chain &operator=(const Chain &) = delete;
 };
 
 class StackNode
