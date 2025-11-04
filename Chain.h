@@ -20,26 +20,6 @@ enum GradOrientation
     EDGE_UNDEFINED = -1
 };
 
-// Pixel Point structure
-struct PPoint
-{
-    PPoint()
-        : is_anchor(false), is_edge(false),
-          row(0), col(0), grad_orientation(EDGE_UNDEFINED)
-    {
-    }
-
-    PPoint(int _row, int _col, GradOrientation _grad_orientation, bool _is_anchor = false, bool _is_edge = false);
-
-    bool is_anchor;
-    bool is_edge;
-    int row;
-    int col;
-    GradOrientation grad_orientation;
-
-    int get_offset(int image_width, int image_height) const;
-};
-
 struct Chain
 {
     std::vector<int> pixels;   // Pixels in this chain segment, the value corresponds to the offset
@@ -52,14 +32,9 @@ struct Chain
     Chain(Direction _direction, Chain *_parent_chain);
     ~Chain();
 
-    // Tree traversal and analysis
-    int total_length(); // Total length of this chain and its children
-
     // Disable copy/assignment to avoid accidental modification of const members
     Chain(const Chain &) = delete;
     Chain &operator=(const Chain &) = delete;
-
-    int total_nb_of_chains();
 };
 
 class StackNode

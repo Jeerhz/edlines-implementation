@@ -253,13 +253,6 @@ void setChildToChain(Chain *parent, Chain *child)
     return;
 }
 
-void setRightOrDownChildToChain(Chain *parent, Chain *child)
-{
-    if (parent == nullptr || child == nullptr)
-        return;
-    parent->second_childChain = child;
-}
-
 void ED::revertChainEdgePixel(Chain *&chain)
 {
 
@@ -365,8 +358,7 @@ StackNode ED::getNextChainPixel(StackNode &current_node)
 
         int neighbor_offset = offset + exploration_offset_diff + perpendicular_step * perpendicular_offset_diff;
 
-        const uchar neighbor_edge_value = edgeImgPointer[neighbor_offset];
-        bool is_neighbor_anchor = (neighbor_edge_value == ANCHOR_PIXEL), is_neighbor_edge = (neighbor_edge_value == EDGE_PIXEL);
+        bool is_neighbor_anchor = (edgeImgPointer[neighbor_offset] == ANCHOR_PIXEL), is_neighbor_edge = (edgeImgPointer[neighbor_offset] == EDGE_PIXEL);
         if (is_neighbor_anchor || is_neighbor_edge)
             return StackNode(neighbor_offset, dir, current_node.parent_chain);
 

@@ -24,8 +24,6 @@ public:
 
     std::vector<cv::Point> getAnchorPoints();
 
-    PPoint getPPoint(int offset);
-
 protected:
     int image_width;      // width of source image
     int image_height;     // height of source image
