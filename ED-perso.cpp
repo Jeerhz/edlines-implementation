@@ -10,10 +10,6 @@ using namespace std;
 
 ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, double _sigma, bool _sumFlag)
 {
-    assert(_gradThresh >= 1 && "Gradient threshold must be >= 1");
-    assert(_anchorThresh >= 0 && "Anchor threshold must be >= 0");
-    assert(_sigma >= 0 && "Sigma must be >= 0");
-
     srcImage = _srcImage;
     image_height = srcImage.rows;
     image_width = srcImage.cols;
@@ -240,7 +236,6 @@ int *ED::sortAnchorsByGradValue()
 
 void setChildToChain(Chain *parent, Chain *child)
 {
-    assert(!(parent == nullptr || child == nullptr) && "Parent or child chain is nullptr in setChildToChain");
 
     if (parent->first_childChain == nullptr)
     {
@@ -248,7 +243,6 @@ void setChildToChain(Chain *parent, Chain *child)
         return;
     }
 
-    assert(parent->second_childChain == nullptr && "Second child chain should be nullptr when setting it");
     parent->second_childChain = child;
     return;
 }
