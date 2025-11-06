@@ -1,0 +1,63 @@
+# .github/workflows/test-edlines.yml
+name: Test EDLines Setup
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential clang libopencv-dev
+
+      - name: Create build directories
+        run: |
+          mkdir -p build
+          mkdir -p ED_Lib/build
+          mkdir -p results
+
+      - name: Build main project
+        run: |
+          cmake -S . -B build
+          cmake --build build -j$(nproc)
+
+      - name: Build ED_Lib submodule
+        run: |
+          cmake -S ED_Lib -B ED_Lib/build
+          cmake --build ED_Lib/build -j$(nproc)
+
+      - name: Run tests on sample image
+        run: |
+          SAMPLE_IMAGE="images/adle.jpg"
+          if [ ! -f "$SAMPLE_IMAGE" ]; then
+            echo "❌ Sample image not found: $SAMPLE_IMAGE"
+            exit 1
+          fi
+
+          echo "▶️ Running main project..."
+          cd results && ../build/test_ED ../$SAMPLE_IMAGE && cd ..
+
+          echo "▶️ Running ED_Lib submodule..."
+          cd results && ../ED_Lib/build/test_ED ../$SAMPLE_IMAGE && cd ..
+
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: edge-detection-results
+          path: results/
