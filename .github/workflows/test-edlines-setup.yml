@@ -44,7 +44,7 @@ jobs:
 
       - name: Run tests on sample image
         run: |
-          SAMPLE_IMAGE="images/adle.jpg"
+          SAMPLE_IMAGE="images/billiard.jpg"
           if [ ! -f "$SAMPLE_IMAGE" ]; then
             echo "❌ Sample image not found: $SAMPLE_IMAGE"
             exit 1

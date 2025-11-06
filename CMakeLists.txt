@@ -1,13 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
 
-if(POLICY CMP0181)
-    cmake_policy(SET CMP0181 NEW)
-endif()
-
-if(POLICY CMP0156)
-    cmake_policy(SET CMP0156 NEW)
-endif()
-
 project(EDStudy)
 
 set(CMAKE_CXX_STANDARD 11)

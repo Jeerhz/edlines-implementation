@@ -16,7 +16,7 @@ int main(int argc, char **argv)
     if (argc > 1)
         filename = argv[1];
     else
-        filename = "../images/maison.jpg";
+        filename = "./images/maison.jpg";
 
     Mat testImg, colorImg;
     colorImg = imread(filename);
