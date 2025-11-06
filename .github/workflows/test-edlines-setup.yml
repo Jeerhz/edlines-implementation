@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -57,7 +57,7 @@ jobs:
           cd results && ../ED_Lib/build/test_ED ../$SAMPLE_IMAGE && cd ..
 
       - name: Upload results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: edge-detection-results
           path: results/
