@@ -52,15 +52,12 @@ int main(int argc, char **argv)
     cout << "New ED Implementation          : " << newEdTime << " ms" << endl;
 
     Mat newEdgeImg = testED.getEdgeImage();
-    Mat newAnchImg = testED.getAnchorImage();
 
     // Save anchor and edge images
-    imwrite("AnchorImage_New.png", newAnchImg);
     imwrite("EdgeImage_New.png", newEdgeImg);
 
     cout << "\nSaved edge images:" << endl;
     cout << "  - EdgeImage_New.png" << endl;
-    cout << "  - AnchorImage_New.png" << endl;
 
     // -------------------------------
     // 2. NEW EDLINES
