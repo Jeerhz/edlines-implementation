@@ -98,16 +98,6 @@ Mat ED::getGradImage()
     return result8UC1;
 }
 
-int ED::getAnchorNo()
-{
-    return anchorNb;
-}
-
-vector<Point> ED::getAnchorPoints()
-{
-    return anchorPoints;
-}
-
 void ED::ComputeGradient()
 {
     // Set borders to below threshold

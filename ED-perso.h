@@ -19,22 +19,17 @@ public:
     cv::Mat getSmoothImage();
     cv::Mat getGradImage();
 
-    int getSegmentNo();
-    int getAnchorNo();
-
-    std::vector<cv::Point> getAnchorPoints();
-
 protected:
     int image_width;      // width of source image
     int image_height;     // height of source image
     uchar *srcImgPointer; // pointer to source image data
     std::vector<std::vector<cv::Point>> segmentPoints;
-    double sigma; // Gaussian sigma
-    cv::Mat smoothImage;
+    double sigma;            // Gaussian sigma
+    cv::Mat smoothImage;     // smoothed image after applying Gaussian filter
     uchar *edgeImgPointer;   // pointer to edge image data
     uchar *smoothImgPointer; // pointer to smoothed image data (gaussian applied)
-    int minPathLen;
-    cv::Mat srcImage;
+    int minPathLen;          // minimum length of an anchor chain
+    cv::Mat srcImage;        // source image
 
 private:
     void ComputeGradient();
