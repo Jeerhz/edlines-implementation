@@ -1,4 +1,3 @@
-#include "./original-ED/original_EDLines.h"
 #include "EDLines.h"
 #include <iostream>
 #include "opencv2/ximgproc.hpp"

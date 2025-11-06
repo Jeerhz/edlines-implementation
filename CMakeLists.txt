@@ -13,7 +13,6 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}") #-fsanitize=address
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/original-ED)
 
 add_library(EDLib STATIC
         EDLines.cpp
@@ -24,10 +23,6 @@ add_library(EDLib STATIC
         Chain.h
         NFA.cpp
         NFA.h
-        original-ED/original_ED.cpp
-        original-ED/original_ED.h
-        original-ED/original_EDLines.cpp
-        original-ED/original_EDLines.h
         )
 
 
