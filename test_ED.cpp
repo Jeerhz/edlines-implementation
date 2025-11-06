@@ -67,7 +67,7 @@ int main(int argc, char **argv)
     EDLines newEDLines(testED);
     tm.stop();
     double newEdLinesTime = tm.getTimeMilli();
-    cout << "New EDLines Implementation     : " << newEdLinesTime << " ms" << endl;
+    cout << "New EDLines Implementation    : " << newEdLinesTime << " ms" << endl;
 
     // Get line images
     Mat newLinesImg = newEDLines.getLineImage();
