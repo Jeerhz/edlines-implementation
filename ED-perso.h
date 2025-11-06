@@ -41,6 +41,7 @@ private:
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
     void exploreChain(StackNode &current_node, Chain *current_chain, int &total_pixels_in_anchor_chain);
+    void extractSegmentsFromAnchorChain(Chain *&anchor_chain_root);
     int *sortAnchorsByGradValue();
 
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);

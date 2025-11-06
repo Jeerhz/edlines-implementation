@@ -19,6 +19,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, d
     sigma = _sigma;
     sumFlag = _sumFlag;
     process_stack = ProcessStack();
+    segmentPoints = vector<vector<Point>>();
     edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0));
     smoothImage = Mat(image_height, image_width, CV_8UC1);
     gradImage = Mat(image_height, image_width, CV_16SC1);
@@ -41,8 +42,31 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, d
     delete[] gradOrientationImgPointer;
 }
 
+// needed for EDLines constructor
 ED::ED(const ED &cpyObj)
 {
+    image_height = cpyObj.image_height;
+    image_width = cpyObj.image_width;
+
+    srcImage = cpyObj.srcImage.clone();
+
+    gradThresh = cpyObj.gradThresh;
+    anchorThresh = cpyObj.anchorThresh;
+    minPathLen = cpyObj.minPathLen;
+    sigma = cpyObj.sigma;
+    sumFlag = cpyObj.sumFlag;
+
+    edgeImage = cpyObj.edgeImage.clone();
+    smoothImage = cpyObj.smoothImage.clone();
+    gradImage = cpyObj.gradImage.clone();
+
+    srcImgPointer = srcImage.data;
+
+    smoothImgPointer = smoothImage.data;
+    gradImgPointer = (short *)gradImage.data;
+    edgeImgPointer = edgeImage.data;
+
+    segmentPoints = cpyObj.segmentPoints;
 }
 
 ED::ED()
@@ -124,20 +148,6 @@ void ED::ComputeGradient()
     }
 }
 
-/**
- * @brief Detects anchor points (strong edge seed pixels) in the gradient image.
- *
- * @details
- * Scans the gradient image row-by-row (skipping a 2-pixel border) and selects candidate
- * pixels whose gradient magnitude exceeds gradThresh. For each candidate the local
- * neighborhood along the edge normal (perpendicular to the edge orientation) is checked:
- * - If the pixel orientation is EDGE_VERTICAL the left and right neighbors are compared.
- * - Otherwise (horizontal or non-vertical) the top and bottom neighbors are compared.
- *
- * A pixel is marked as an anchor when its gradient value exceeds both neighbor values
- * by at least anchorThresh.
- *
- */
 void ED::ComputeAnchorPoints()
 {
     for (int i = 2; i < image_height - 2; i++)
@@ -263,6 +273,114 @@ void ED::revertChainEdgePixel(Chain *&chain)
     revertChainEdgePixel(chain->first_childChain);
     revertChainEdgePixel(chain->second_childChain);
 }
+bool areNeighbors(int offset1, int offset2, int image_width)
+{
+    int dr = abs(offset1 / image_width - offset2 / image_width);
+    int dc = abs(offset1 % image_width - offset2 % image_width);
+    return (dr <= 1 && dc <= 1);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////// GPT GENERATED /////////////////////////////////////////////
+void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
+{
+    if (!anchor_chain_root)
+        return;
+
+    vector<int> segment;
+
+    // Helper lambda to collect chains along first_childChain path
+    auto collectChainPath = [](Chain *start) -> vector<Chain *>
+    {
+        vector<Chain *> path;
+        while (start)
+        {
+            path.push_back(start);
+            start = start->first_childChain;
+        }
+        return path;
+    };
+
+    // Helper lambda to clean up neighboring pixels between chains
+    auto cleanupAndAdd = [&](Chain *chain, bool reverse)
+    {
+        if (chain->pixels.empty())
+            return;
+
+        int firstPixel = reverse ? chain->pixels.back() : chain->pixels.front();
+
+        // Remove neighboring pixels from end of segment
+        while (segment.size() >= 2 && areNeighbors(segment.back(), segment[segment.size() - 2], image_width))
+        {
+            segment.pop_back();
+        }
+
+        // Check if we should skip first/last pixel of chain
+        if (chain->pixels.size() > 1 && !segment.empty())
+        {
+            int secondPixel = reverse ? chain->pixels[chain->pixels.size() - 2] : chain->pixels[1];
+            if (areNeighbors(segment.back(), secondPixel, image_width))
+            {
+                if (reverse)
+                    chain->pixels.pop_back();
+                else
+                    chain->pixels.erase(chain->pixels.begin());
+            }
+        }
+
+        // Add chain pixels
+        if (reverse)
+        {
+            for (int i = chain->pixels.size() - 1; i >= 0; i--)
+                segment.push_back(chain->pixels[i]);
+        }
+        else
+        {
+            for (int pixel : chain->pixels)
+                segment.push_back(pixel);
+        }
+    };
+
+    // Process first child (reverse order based on direction)
+    if (anchor_chain_root->first_childChain)
+    {
+        vector<Chain *> path = collectChainPath(anchor_chain_root->first_childChain);
+        for (int i = path.size() - 1; i >= 0; i--)
+            cleanupAndAdd(path[i], true);
+    }
+
+    // Process second child (forward order) - skip first pixel to avoid duplication
+    if (anchor_chain_root->second_childChain)
+    {
+        vector<Chain *> path = collectChainPath(anchor_chain_root->second_childChain);
+        if (!path.empty() && !path[0]->pixels.empty())
+            path[0]->pixels.erase(path[0]->pixels.begin());
+
+        for (Chain *chain : path)
+            cleanupAndAdd(chain, false);
+    }
+
+    // Final cleanup: remove first pixel if it neighbors the last
+    if (segment.size() >= 2 && areNeighbors(segment.front(), segment.back(), image_width))
+        segment.erase(segment.begin());
+
+    // Convert offsets to Points and store segment if valid
+    if (segment.size() >= 2)
+    {
+        vector<Point> pointSegment;
+        pointSegment.reserve(segment.size());
+        for (int offset : segment)
+        {
+            int y = offset / image_width;
+            int x = offset % image_width;
+            pointSegment.push_back(Point(x, y));
+        }
+        segmentPoints.push_back(pointSegment);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
 {
@@ -308,9 +426,16 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
         }
 
         if (total_pixels_in_anchor_chain < minPathLen)
+        {
             revertChainEdgePixel(anchor_chain_root);
+            RemoveAll(anchor_chain_root);
+        }
 
-        RemoveAll(anchor_chain_root);
+        else
+        {
+            extractSegmentsFromAnchorChain(anchor_chain_root);
+            RemoveAll(anchor_chain_root);
+        }
     }
     delete[] SortedAnchors;
 }
@@ -372,15 +497,6 @@ bool ED::validateNode(StackNode &node)
     return (edgeImgPointer[node.offset] != EDGE_PIXEL) && (gradImgPointer[node.offset] >= gradThresh);
 }
 
-/**
- * Explore and grow an edge chain starting from current_node by following
- * consecutive pixels whose gradient orientation matches the first node direction.
- * Add visited pixels to current_chain and mark them in the edge image while
- * enqueuing valid perpendicular neighbors into process_stack when the chain ends.
- *
- * @param current_node  Reference to the starting StackNode for chain exploration.
- * @param current_chain Pointer to the Chain being populated with chain pixels.
- */
 void ED::exploreChain(StackNode &current_node, Chain *current_chain, int &total_pixels_in_anchor_chain)
 {
 

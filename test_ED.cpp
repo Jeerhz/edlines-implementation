@@ -1,4 +1,3 @@
-// #include "EDLines.h"
 #include "./original-ED/original_EDLines.h"
 #include "EDLines.h"
 #include <iostream>
@@ -18,7 +17,7 @@ int main(int argc, char **argv)
     if (argc > 1)
         filename = argv[1];
     else
-        filename = "maison.jpg";
+        filename = "../images/maison.jpg";
 
     Mat testImg, colorImg;
     colorImg = imread(filename);
@@ -32,8 +31,6 @@ int main(int argc, char **argv)
     cvtColor(colorImg, testImg, COLOR_BGR2GRAY);
 
     Ptr<EdgeDrawing> ed = createEdgeDrawing();
-    vector<Vec4f> newLines, originalLines;
-
     cout << "\n#################################################";
     cout << "\n##### ORIGINAL ED vs NEW ED COMPARISON #########";
     cout << "\n#################################################\n";
@@ -45,48 +42,49 @@ int main(int argc, char **argv)
 
     TickMeter tm;
 
-    // Original ED
-    tm.start();
-    OriginalED testOriginalED = OriginalED(testImg, SOBEL_OPERATOR, 36, 8, 1, 10, 1.0, true);
-    tm.stop();
-    double originalEdTime = tm.getTimeMilli();
-    std::cout << "Original ED (Ground Truth)     : " << originalEdTime << " ms" << endl;
-
-    // New ED
+    // -------------------------------
+    // 1. NEW ED
+    // -------------------------------
     tm.reset();
     tm.start();
     ED testED = ED(testImg, 36, 8, 10, 1.0, true);
     tm.stop();
     double newEdTime = tm.getTimeMilli();
-    std::cout << "New ED Implementation          : " << newEdTime << " ms" << endl;
+    cout << "New ED Implementation          : " << newEdTime << " ms" << endl;
 
-    // Compare edge images d
-    Mat originalEdgeImg = testOriginalED.getEdgeImage();
     Mat newEdgeImg = testED.getEdgeImage();
-    Mat edgeDiff;
-    absdiff(originalEdgeImg, newEdgeImg, edgeDiff);
-
-    cout << "\n=== EDGE DETECTION ACCURACY ===" << endl;
-    cout << "Different edge pixels (Original vs New): " << countNonZero(edgeDiff) << endl;
-
-    // Save only required images
-    Mat originalAnchImg = testOriginalED.getAnchorImage();
     Mat newAnchImg = testED.getAnchorImage();
 
-    imwrite("AnchorImage_Original.png", originalAnchImg);
+    // Save anchor and edge images
     imwrite("AnchorImage_New.png", newAnchImg);
-    imwrite("EdgeImage_Original.png", originalEdgeImg);
     imwrite("EdgeImage_New.png", newEdgeImg);
-    imwrite("edge_comparison_original_vs_new.png", edgeDiff);
 
-    cout << "\nSaved images:" << endl;
-    cout << "  - AnchorImage_Original.png" << endl;
-    cout << "  - AnchorImage_New.png" << endl;
-    cout << "  - EdgeImage_Original.png" << endl;
+    cout << "\nSaved edge images:" << endl;
     cout << "  - EdgeImage_New.png" << endl;
-    cout << "  - edge_comparison_original_vs_new.png" << endl;
+    cout << "  - AnchorImage_New.png" << endl;
+
+    // -------------------------------
+    // 2. NEW EDLINES
+    // -------------------------------
+    tm.reset();
+    tm.start();
+    EDLines newEDLines(testED);
+    tm.stop();
+    double newEdLinesTime = tm.getTimeMilli();
+    cout << "New EDLines Implementation     : " << newEdLinesTime << " ms" << endl;
+
+    // Get line images
+    Mat newLinesImg = newEDLines.getLineImage();
+
+    // Save images
+    imwrite("LineImage_New.png", newLinesImg);
+
+    cout << "\nSaved line images:" << endl;
+    cout << "  - LineImage_New.png" << endl;
 
     cout << "\n#################################################" << endl;
+    cout << "All comparisons completed successfully.\n";
+    cout << "#################################################\n";
 
     return 0;
 }

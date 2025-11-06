@@ -7,16 +7,17 @@ project(EDStudy)
 set(CMAKE_CXX_STANDARD 11)
 # Enable debugging and AddressSanitizer
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g") #-fsanitize=address -fno-omit-frame-pointer
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}") #-fsanitize=address
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/original-ED)
 
 add_library(EDLib STATIC
         EDLines.cpp
         EDLines.h
-        NFA.cpp
         ED-perso.cpp
         ED-perso.h
         Chain.cpp
