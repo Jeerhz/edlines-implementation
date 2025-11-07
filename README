@@ -1,34 +1,32 @@
-## 🧠 EDLines Study Project
+# EDLines Study Project
 
-This repository contains a comparative study and implementation of the **EDLines algorithm** for line segment detection in images.
-It includes:
-
-- A **custom implementation** in the root project (`EDStudy`).
-- The **original EDLib** source code as a **git submodule** under `ED_Lib/`.
+This project compares two **EDLines implementations**:
+- Custom version in the root folder (`EDStudy`)
+- Original EDLib as a **git submodule** in `ED_Lib/`
 
 ---
 
-### 📁 Project Structure
+## Structure
 
 ```
 .
-├── ED_Lib/              # Original EDLines library (submodule)
-├── images/              # Test images used for both implementations
-├── CMakeLists.txt       # Build configuration for EDStudy
-├── Makefile             # Unified Makefile (init, build, run)
-├── test_ED.cpp          # Entry point for the custom EDLines test
+├── ED_Lib/        # Original EDLines library
+├── images/        # Test images
+├── CMakeLists.txt # Build config
+├── Makefile       # Init, build, run
+├── test_ED.cpp    # Main test program
 └── README.md
 ```
 
 ---
 
-### ⚙️ Requirements
+## Requirements
 
 - **CMake ≥ 3.11**
-- **g++** or **clang** supporting C++11
-- **OpenCV** installed and available in your system
+- **g++** or **clang** with C++11
+- **OpenCV**
 
-On Ubuntu/Debian:
+### Ubuntu/Debian:
 
 ```bash
 sudo apt update
@@ -37,83 +35,42 @@ sudo apt install build-essential cmake libopencv-dev
 
 ---
 
-### 🚀 Quick Start
-
-Clone the repository and initialize submodules:
+## Setup
 
 ```bash
-git clone https://github.com/<your-username>/EDLINES-IMPLEMENTATION.git
+git clone https://github.com/<username>/EDLINES-IMPLEMENTATION.git
 cd EDLINES-IMPLEMENTATION
 make init
 ```
 
 ---
 
-### 🏗️ Build
-
-To build both your implementation and the original EDLib:
+## Build
 
 ```bash
 make build
 ```
 
-This will:
-
-- Create `build/` for your project and compile it via CMake.
-- Create `ED_Lib/build/` and compile the original EDLib project.
+- Builds custom project in `build/`
+- Builds EDLib submodule in `ED_Lib/build/`
 
 ---
 
-### ▶️ Run
+## Run
 
-To run **both** implementations on all images in the `images/` folder:
+Run the original and new versions with:
 
 ```bash
-make run
+make run IMAGE=<image_filename>
 ```
 
-To run only one version:
+Results are saved in `results/`.
+
+---
+
+## Clean
 
 ```bash
-make run-main   # Run your version (root test_ED)
-make run-edlib  # Run original version (ED_Lib/test_ED)
-```
-
-Each executable will be run for every image file found in the `images/` directory.
-
----
-
-### 🧹 Clean and Rebuild
-
-```bash
-make clean     # Remove all build directories
-make rebuild   # Clean and rebuild everything
-```
-
----
-
-### 🧩 Development Notes
-
-- The main project uses CMake with debugging symbols enabled (`-g`).
-- The `Makefile` provides a simplified workflow to compare results between your ED implementation and the original EDLib.
-- To add new tests, simply place new image files in the `images/` folder.
-
----
-
-### 📸 Example
-
-```
-make run
-```
-
-**Console output:**
-
-```
-🚀 Running test_ED from main project...
-▶️ Running with images/example1.jpg
-▶️ Running with images/example2.jpg
-
-🚀 Running test_ED from ED_Lib submodule...
-▶️ Running with images/example1.jpg
-▶️ Running with images/example2.jpg
+make clean     # Remove builds and results
+make rebuild   # Clean and build again
 ```
