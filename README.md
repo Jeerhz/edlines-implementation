@@ -1,8 +1,10 @@
 # EDLines Study Project
 
 This project compares two **EDLines implementations**:
-- Custom version in the root folder (`EDStudy`)
+- Custom version in the root folder (`edlines-implementation`)
 - Original EDLib as a **git submodule** in `ED_Lib/`
+
+We refactored the Edge Detector and Lines Detector scripts in Cihan Topal and al repository (https://github.com/CihanTopal/ED_Lib) for explanatory and clarity purposes.
 
 ---
 
