@@ -12,11 +12,13 @@ We refactored the Edge Detector and Lines Detector scripts in Cihan Topal and al
 
 ```
 .
-├── ED_Lib/        # Original EDLines library
-├── images/        # Test images
-├── CMakeLists.txt # Build config
-├── Makefile       # Init, build, run
-├── test_ED.cpp    # Main test program
+├── ED_Lib/         # Original EDLines library
+├── images/         # Test images
+├── results/        # Result of algorithms
+├── CMakeLists.txt  # Build config
+├── Makefile        # Init, build, run
+├── ...             # New cpp project (.cpp and .h files)
+├── test_ED.cpp     # Main test program
 └── README.md
 ```
 
