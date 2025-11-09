@@ -263,15 +263,15 @@ void ED::revertChainEdgePixel(Chain *&chain)
     revertChainEdgePixel(chain->first_childChain);
     revertChainEdgePixel(chain->second_childChain);
 }
+// Helper function to check if two pixel offsets are neighbors
 bool areNeighbors(int offset1, int offset2, int image_width)
 {
     int dr = abs(offset1 / image_width - offset2 / image_width);
     int dc = abs(offset1 % image_width - offset2 % image_width);
     return (dr <= 1 && dc <= 1);
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////// GPT GENERATED /////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+//
 void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
 {
     if (!anchor_chain_root)
@@ -291,13 +291,11 @@ void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
         return path;
     };
 
-    // Helper lambda to clean up neighboring pixels between chains
+    // Helper lambda to clean up neighboring pixels between chains and add to segment
     auto cleanupAndAdd = [&](Chain *chain, bool reverse)
     {
         if (chain->pixels.empty())
             return;
-
-        int firstPixel = reverse ? chain->pixels.back() : chain->pixels.front();
 
         // Remove neighboring pixels from end of segment
         while (segment.size() >= 2 && areNeighbors(segment.back(), segment[segment.size() - 2], image_width))
@@ -318,7 +316,7 @@ void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
             }
         }
 
-        // Add chain pixels
+        // Add chain pixels in specified order
         if (reverse)
         {
             for (int i = chain->pixels.size() - 1; i >= 0; i--)
@@ -331,7 +329,48 @@ void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
         }
     };
 
-    // Process first child (reverse order based on direction)
+    // Helper to convert segment offsets to Points and store
+    auto storeSegment = [&]()
+    {
+        if (segment.size() >= 2)
+        {
+            vector<Point> pointSegment;
+            pointSegment.reserve(segment.size());
+            for (int offset : segment)
+            {
+                int y = offset / image_width;
+                int x = offset % image_width;
+                pointSegment.push_back(Point(x, y));
+            }
+            segmentPoints.push_back(pointSegment);
+        }
+        segment.clear();
+    };
+
+    // Helper to compute longest chain length recursively
+    std::function<int(Chain *)> longestChainLength = [&](Chain *chain) -> int
+    {
+        if (!chain || chain->pixels.empty())
+            return 0;
+
+        int len1 = chain->first_childChain ? longestChainLength(chain->first_childChain) : 0;
+        int len2 = chain->second_childChain ? longestChainLength(chain->second_childChain) : 0;
+
+        return chain->pixels.size() + std::max(len1, len2);
+    };
+
+    // Helper to collect all chains in the tree
+    std::function<void(Chain *, vector<Chain *> &)> collectAllChains =
+        [&](Chain *chain, vector<Chain *> &allChains)
+    {
+        if (!chain)
+            return;
+        allChains.push_back(chain);
+        collectAllChains(chain->first_childChain, allChains);
+        collectAllChains(chain->second_childChain, allChains);
+    };
+
+    // Process first child (reverse order)
     if (anchor_chain_root->first_childChain)
     {
         vector<Chain *> path = collectChainPath(anchor_chain_root->first_childChain);
@@ -339,7 +378,7 @@ void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
             cleanupAndAdd(path[i], true);
     }
 
-    // Process second child (forward order) - skip first pixel to avoid duplication
+    // Process second child (forward order, skip first pixel to avoid duplication)
     if (anchor_chain_root->second_childChain)
     {
         vector<Chain *> path = collectChainPath(anchor_chain_root->second_childChain);
@@ -350,25 +389,41 @@ void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root)
             cleanupAndAdd(chain, false);
     }
 
-    // Final cleanup: remove first pixel if it neighbors the last
+    // Final cleanup: remove first pixel if it neighbors the last (closed loop detection)
     if (segment.size() >= 2 && areNeighbors(segment.front(), segment.back(), image_width))
         segment.erase(segment.begin());
 
-    // Convert offsets to Points and store segment if valid
-    if (segment.size() >= 2)
+    // Store the main segment
+    storeSegment();
+
+    // Process remaining long chains that weren't part of the main path
+    vector<Chain *> allChains;
+    collectAllChains(anchor_chain_root, allChains);
+
+    for (size_t i = 0; i < allChains.size(); i++)
     {
-        vector<Point> pointSegment;
-        pointSegment.reserve(segment.size());
-        for (int offset : segment)
+        Chain *chain = allChains[i];
+
+        // Skip empty chains or already processed root children
+        if (chain->pixels.empty() ||
+            chain == anchor_chain_root->first_childChain ||
+            chain == anchor_chain_root->second_childChain)
+            continue;
+
+        // Only process chains with total length >= 10 pixels
+        int totalLen = longestChainLength(chain);
+        if (totalLen >= 10)
         {
-            int y = offset / image_width;
-            int x = offset % image_width;
-            pointSegment.push_back(Point(x, y));
+            vector<Chain *> path = collectChainPath(chain);
+            segment.clear();
+
+            for (Chain *pathChain : path)
+                cleanupAndAdd(pathChain, false);
+
+            storeSegment();
         }
-        segmentPoints.push_back(pointSegment);
     }
 }
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 

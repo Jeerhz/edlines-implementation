@@ -26,38 +26,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential clang libopencv-dev
 
-      - name: Create build directories
+      - name: Initialize submodules
         run: |
-          mkdir -p build
-          mkdir -p ED_Lib/build
-          mkdir -p results
+          make init
 
-      - name: Build main project
+      - name: Build the two projects
         run: |
-          cmake -S . -B build
-          cmake --build build -j$(nproc)
-
-      - name: Build ED_Lib submodule
-        run: |
-          cmake -S ED_Lib -B ED_Lib/build
-          cmake --build ED_Lib/build -j$(nproc)
+          make build
 
       - name: Run tests on sample image
         run: |
-          SAMPLE_IMAGE="images/billiard.jpg"
-          if [ ! -f "$SAMPLE_IMAGE" ]; then
-            echo "❌ Sample image not found: $SAMPLE_IMAGE"
-            exit 1
-          fi
-
-          echo "▶️ Running main project..."
-          cd results && ../build/test_ED ../$SAMPLE_IMAGE && cd ..
-
-          echo "▶️ Running ED_Lib submodule..."
-          cd results && ../ED_Lib/build/test_ED ../$SAMPLE_IMAGE && cd ..
+          make run IMAGE=billiard.jpg
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
           name: edge-detection-results
           path: results/
+
+      - name: clean all
+        run: |
+          make clean
