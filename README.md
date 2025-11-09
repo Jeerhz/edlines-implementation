@@ -30,13 +30,6 @@ We refactored the Edge Detector and Lines Detector scripts in Cihan Topal and al
 - **g++** or **clang** with C++11
 - **OpenCV**
 
-### Ubuntu/Debian:
-
-```bash
-sudo apt update
-sudo apt install build-essential cmake libopencv-dev
-```
-
 ---
 
 ## Setup
