@@ -275,19 +275,13 @@ int ED::pruneToLongestChain(Chain *&chain)
     if (leftLen >= rightLen)
     {
         if (chain->second_childChain)
-        {
-            revertChainEdgePixel(chain->second_childChain);
             chain->second_childChain = nullptr;
-        }
         return chain->pixels.size() + leftLen;
     }
     else
     {
         if (chain->first_childChain)
-        {
-            revertChainEdgePixel(chain->first_childChain);
             chain->first_childChain = nullptr;
-        }
         return chain->pixels.size() + rightLen;
     }
 }
