@@ -31,6 +31,10 @@ struct Chain
     Chain();
     Chain(Direction _direction, Chain *_parent_chain);
     ~Chain();
+
+    int pruneToLongestChain();
+    std::vector<Chain *> getAllChains();
+    void appendAllChains(std::vector<Chain *> &allChains); // helper to pass one vector by reference
 };
 
 class StackNode

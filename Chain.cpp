@@ -19,6 +19,41 @@ Chain::~Chain()
 {
 }
 
+int Chain::pruneToLongestChain()
+{
+    int first_childChain_totalLen = first_childChain ? first_childChain->pruneToLongestChain() : 0;
+    int second_childChain_totalLen = second_childChain ? second_childChain->pruneToLongestChain() : 0;
+
+    if (first_childChain_totalLen >= second_childChain_totalLen)
+    {
+
+        second_childChain = nullptr;
+        return pixels.size() + first_childChain_totalLen;
+    }
+    else
+    {
+        first_childChain = nullptr;
+        return pixels.size() + second_childChain_totalLen;
+    }
+}
+
+std::vector<Chain *> Chain::getAllChains()
+{
+    std::vector<Chain *> all_chains;
+    appendAllChains(all_chains);
+    return all_chains;
+}
+
+void Chain::appendAllChains(std::vector<Chain *> &allChains) // helper to pass one vector by reference
+{
+    allChains.push_back(this);
+    if (first_childChain)
+        first_childChain->appendAllChains(allChains);
+
+    if (second_childChain)
+        second_childChain->appendAllChains(allChains);
+}
+
 // StackNode implementation
 StackNode::StackNode(int _offset, Direction direction, Chain *_parent_chain)
 {

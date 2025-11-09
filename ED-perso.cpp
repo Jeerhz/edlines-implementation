@@ -286,21 +286,79 @@ int ED::pruneToLongestChain(Chain *&chain)
     }
 }
 
-void ED::extractSegmentsFromAnchorChain(Chain *&anchor_chain_root, std::vector<Point> &anchorSegment)
+bool ED::areNeighbors(int offset1, int offset2)
+{
+    int row_distance = abs(offset1 / image_width - offset2 / image_width);
+    int col_distance = abs(offset1 % image_width - offset2 % image_width);
+    return (row_distance <= 1 && col_distance <= 1);
+}
+
+// We take the last pixel of the current processed chain and clean its neighbors in the segment
+void ED::cleanUpLastPenultimateSegmentPixel(Chain *chain, std::vector<cv::Point> &anchorSegment)
+{
+    if (!chain || chain->pixels.empty())
+        return;
+
+    int chain_last_pixel_offset = chain->pixels.back();
+
+    // Start with the second last pixel in the segment
+    while (anchorSegment.size() > 1)
+    {
+        int segment_penultimate_index = anchorSegment.size() - 2;
+        Point penultimate_segment_pixel = anchorSegment[segment_penultimate_index];
+        if (areNeighbors(chain_last_pixel_offset, penultimate_segment_pixel.y * image_width + penultimate_segment_pixel.x))
+        {
+            std::cout << "Removing penultimate pixel: " << penultimate_segment_pixel << std::endl;
+            anchorSegment.pop_back();
+        }
+        else
+            break;
+    }
+}
+
+// This time you take the last pixel from the processed chain and remove it if it's neighbor to the last pixel in the segment
+void ED::cleanUpLastPixelChainNeighbor(Chain *chain, std::vector<cv::Point> &anchorSegment)
+{
+    if (!chain || chain->pixels.empty())
+        return;
+
+    int chain_last_pixel_offset = chain->pixels.back();
+
+    if (anchorSegment.empty())
+        return;
+
+    Point last_segment_pixel = anchorSegment.back();
+    if (areNeighbors(chain_last_pixel_offset, last_segment_pixel.y * image_width + last_segment_pixel.x))
+    {
+        std::cout << "Removing last pixel: " << last_segment_pixel << std::endl;
+        chain->pixels.pop_back();
+    }
+}
+
+void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<cv::Point> &anchorSegment)
 {
     if (!anchor_chain_root)
         return;
 
-    for (int pixel_index = 0; pixel_index < anchor_chain_root->pixels.size(); pixel_index++)
-    {
-        int offset = anchor_chain_root->pixels[pixel_index];
-        int row = offset / image_width;
-        int col = offset % image_width;
-        anchorSegment.push_back(Point(col, row));
-    }
+    std::vector<Chain *> all_chains = anchor_chain_root->getAllChains();
+    std::cout << "Number of chains in all chains: " << all_chains.size() << std::endl;
 
-    extractSegmentsFromAnchorChain(anchor_chain_root->first_childChain, anchorSegment);
-    extractSegmentsFromAnchorChain(anchor_chain_root->second_childChain, anchorSegment);
+    // We iterate through all chains backward
+    for (int chain_index = 0; chain_index < all_chains.size(); chain_index++)
+    {
+        std::cout << "bobololo" << std::endl;
+        // cleanUpLastPenultimateSegmentPixel(all_chains[chain_index], anchorSegment);
+        // cleanUpLastPixelChainNeighbor(all_chains[chain_index], anchorSegment);
+        // add pixels from this chain in reverse order
+        while (!all_chains[chain_index]->pixels.empty())
+        {
+            int pixel_offset = all_chains[chain_index]->pixels.back();
+            std::cout << "Adding pixel: (" << pixel_offset % image_width << ", " << pixel_offset / image_width << ")" << std::endl;
+            anchorSegment.push_back(Point(pixel_offset % image_width, pixel_offset / image_width));
+            // remove the pixel from the chain so the loop progresses and to avoid reprocessing
+            all_chains[chain_index]->pixels.pop_back();
+        }
+    }
 }
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
@@ -350,12 +408,15 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
 
         else
         {
-            pruneToLongestChain(anchor_chain_root);
+            anchor_chain_root->pruneToLongestChain();
             // Create a segment corresponding to this anchor chain
             std::vector<Point> anchorSegment;
-            extractSegmentsFromAnchorChain(anchor_chain_root, anchorSegment);
+            extractSegmentsFromChain(anchor_chain_root, anchorSegment);
             if (!anchorSegment.empty())
+            {
+                std::cout << "Segment size: " << anchorSegment.size() << std::endl;
                 segmentPoints.push_back(anchorSegment);
+            }
         }
 
         RemoveAll(anchor_chain_root);
