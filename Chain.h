@@ -26,6 +26,7 @@ struct Chain
     Chain *const parent_chain; // Pointer to parent chain (never changes after init)
     Chain *first_childChain;   // Pointer to left/up child chain
     bool is_first_childChain_longest_path = false; // Flag to indicate if first child chain is used for the longest path
+    bool is_extracted = false; // Flag to indicate if this chain has been extracted into a segment
     Chain *second_childChain;  // Pointer to right/down child chain
     const Direction direction; // Direction of this chain (never changes after init)
 
@@ -34,6 +35,12 @@ struct Chain
     ~Chain();
 
     int pruneToLongestChain();
+
+    int getTotalLength(bool only_longest_path = false); // Compute the total length of this chain and its children
+
+    std::vector<Chain *> getAllChains(bool only_longest_path = false);
+    void appendAllChains(std::vector<Chain *> &allChains, bool only_longest_path = false); // helper to pass
+
     std::vector<Chain *> getAllChainsInLongestPath();
     void appendAllChainsInLongestPath(std::vector<Chain *> &allChains); // helper to pass one vector by reference
 };

@@ -37,21 +37,34 @@ int Chain::pruneToLongestChain()
     }
 }
 
-std::vector<Chain *> Chain::getAllChainsInLongestPath()
+std::vector<Chain *> Chain::getAllChains(bool only_longest_path)
 {
     std::vector<Chain *> all_chains;
-    appendAllChainsInLongestPath(all_chains);
+    appendAllChains(all_chains, only_longest_path);
     return all_chains;
 }
 
-void Chain::appendAllChainsInLongestPath(std::vector<Chain *> &allChains) // helper to pass one vector by reference
+void Chain::appendAllChains(std::vector<Chain *> &allChains, bool only_longest_path)
 {
     allChains.push_back(this);
-    if (first_childChain && is_first_childChain_longest_path)
-        first_childChain->appendAllChainsInLongestPath(allChains);
+    if (first_childChain && (!only_longest_path || is_first_childChain_longest_path))
+        first_childChain->appendAllChains(allChains, only_longest_path);
 
-    if (second_childChain && !is_first_childChain_longest_path)
-        second_childChain->appendAllChainsInLongestPath(allChains);
+    if (second_childChain && (!only_longest_path || !is_first_childChain_longest_path))
+        second_childChain->appendAllChains(allChains, only_longest_path);
+}
+
+int Chain::getTotalLength(bool only_longest_path)
+{
+    int total_length = pixels.size();
+
+    if (first_childChain && (!only_longest_path || is_first_childChain_longest_path))
+        total_length += first_childChain->getTotalLength(only_longest_path);
+
+    if (second_childChain && (!only_longest_path || !is_first_childChain_longest_path))
+        total_length += second_childChain->getTotalLength(only_longest_path);
+
+    return total_length;
 }
 
 // StackNode implementation

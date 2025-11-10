@@ -37,7 +37,7 @@ private:
     void JoinAnchorPointsUsingSortedAnchors();
     void exploreChain(StackNode &current_node, Chain *current_chain, int &total_pixels_in_anchor_chain);
     int pruneToLongestChain(Chain *&anchor_chain_root);
-    void extractSegmentsFromChain(Chain *chain, std::vector<cv::Point> &anchorSegment);
+    void extractSegmentsFromChain(Chain *chain, std::vector<std::vector<cv::Point>> &anchorSegments);
     int *sortAnchorsByGradValue();
 
     void cleanUpSurroundingAnchorPixels(StackNode &current_node);
@@ -45,6 +45,7 @@ private:
     bool validateNode(StackNode &node);
     bool areNeighbors(int offset1, int offset2);
     void cleanUpPenultimateSegmentPixel(Chain *chain, std::vector<cv::Point> &anchorSegment, bool is_first_child);
+    void cleanUpPixelChain(Chain *chain, std::vector<cv::Point> &anchorSegment, bool is_first_child);
     void revertChainEdgePixel(Chain *&chain);
 
     int anchorNb;
