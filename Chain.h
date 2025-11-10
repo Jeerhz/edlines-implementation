@@ -25,6 +25,7 @@ struct Chain
     std::vector<int> pixels;   // Pixels in this chain segment, the value corresponds to the offset
     Chain *const parent_chain; // Pointer to parent chain (never changes after init)
     Chain *first_childChain;   // Pointer to left/up child chain
+    bool is_first_childChain_longest_path = false; // Flag to indicate if first child chain is used for the longest path
     Chain *second_childChain;  // Pointer to right/down child chain
     const Direction direction; // Direction of this chain (never changes after init)
 
@@ -33,8 +34,8 @@ struct Chain
     ~Chain();
 
     int pruneToLongestChain();
-    std::vector<Chain *> getAllChains();
-    void appendAllChains(std::vector<Chain *> &allChains); // helper to pass one vector by reference
+    std::vector<Chain *> getAllChainsInLongestPath();
+    void appendAllChainsInLongestPath(std::vector<Chain *> &allChains); // helper to pass one vector by reference
 };
 
 class StackNode

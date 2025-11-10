@@ -27,31 +27,31 @@ int Chain::pruneToLongestChain()
     if (first_childChain_totalLen >= second_childChain_totalLen)
     {
 
-        second_childChain = nullptr;
+        is_first_childChain_longest_path = true;
         return pixels.size() + first_childChain_totalLen;
     }
     else
     {
-        first_childChain = nullptr;
+        is_first_childChain_longest_path = false;
         return pixels.size() + second_childChain_totalLen;
     }
 }
 
-std::vector<Chain *> Chain::getAllChains()
+std::vector<Chain *> Chain::getAllChainsInLongestPath()
 {
     std::vector<Chain *> all_chains;
-    appendAllChains(all_chains);
+    appendAllChainsInLongestPath(all_chains);
     return all_chains;
 }
 
-void Chain::appendAllChains(std::vector<Chain *> &allChains) // helper to pass one vector by reference
+void Chain::appendAllChainsInLongestPath(std::vector<Chain *> &allChains) // helper to pass one vector by reference
 {
     allChains.push_back(this);
-    if (first_childChain)
-        first_childChain->appendAllChains(allChains);
+    if (first_childChain && is_first_childChain_longest_path)
+        first_childChain->appendAllChainsInLongestPath(allChains);
 
-    if (second_childChain)
-        second_childChain->appendAllChains(allChains);
+    if (second_childChain && !is_first_childChain_longest_path)
+        second_childChain->appendAllChainsInLongestPath(allChains);
 }
 
 // StackNode implementation

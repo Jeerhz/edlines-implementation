@@ -318,7 +318,7 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<cv::Poin
     if (!anchor_chain_root)
         return;
 
-    std::vector<Chain *> all_second_child_chains = anchor_chain_root->second_childChain->getAllChains();
+    std::vector<Chain *> all_second_child_chains = anchor_chain_root->second_childChain->getAllChainsInLongestPath();
 
     // We iterate through all chains backward
     for (int chain_index = 0; chain_index < all_second_child_chains.size(); chain_index++)
@@ -333,7 +333,7 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<cv::Poin
         }
     }
 
-    std::vector<Chain *> all_first_child_chains = anchor_chain_root->first_childChain->getAllChains();
+    std::vector<Chain *> all_first_child_chains = anchor_chain_root->first_childChain->getAllChainsInLongestPath();
 
     // We iterate through all chains forward
     for (int chain_index = 0; chain_index < all_first_child_chains.size(); chain_index++)
