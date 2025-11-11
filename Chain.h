@@ -22,13 +22,13 @@ enum GradOrientation
 
 struct Chain
 {
-    std::vector<int> pixels;   // Pixels in this chain segment, the value corresponds to the offset
-    Chain *const parent_chain; // Pointer to parent chain (never changes after init)
-    Chain *first_childChain;   // Pointer to left/up child chain
-    bool is_first_childChain_longest_path = false; // Flag to indicate if first child chain is used for the longest path
-    bool is_extracted = false; // Flag to indicate if this chain has been extracted into a segment
-    Chain *second_childChain;  // Pointer to right/down child chain
-    const Direction direction; // Direction of this chain (never changes after init)
+    std::vector<int> pixels;               // Pixels in this chain segment, the value corresponds to the offset
+    Chain *const parent_chain;             // Pointer to parent chain (never changes after init)
+    Chain *first_childChain;               // Pointer to left/up child chain
+    bool is_first_childChain_longest_path; // Flag to indicate if this is the longest path use first child
+    bool is_extracted = false;             // Flag to indicate if this chain has been extracted into a segment
+    Chain *second_childChain;              // Pointer to right/down child chain
+    const Direction direction;             // Direction of this chain (never changes after init)
 
     Chain();
     Chain(Direction _direction, Chain *_parent_chain);
@@ -38,11 +38,8 @@ struct Chain
 
     int getTotalLength(bool only_longest_path = false); // Compute the total length of this chain and its children
 
-    std::vector<Chain *> getAllChains(bool only_longest_path = false);
-    void appendAllChains(std::vector<Chain *> &allChains, bool only_longest_path = false); // helper to pass
-
-    std::vector<Chain *> getAllChainsInLongestPath();
-    void appendAllChainsInLongestPath(std::vector<Chain *> &allChains); // helper to pass one vector by reference
+    std::pair<int, std::vector<Chain *>> getAllChains(bool only_longest_path = false);
+    void appendAllChains(std::vector<Chain *> &allChains, int &total_length, bool only_longest_path = false); // helper to pass
 };
 
 class StackNode

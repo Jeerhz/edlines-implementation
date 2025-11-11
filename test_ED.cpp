@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 
     Ptr<EdgeDrawing> ed = createEdgeDrawing();
     cout << "\n#################################################";
-    cout << "\n##### ORIGINAL ED vs NEW ED COMPARISON #########";
+    cout << "\n##### NEW ED IMPLEMENTATION #########";
     cout << "\n#################################################\n";
 
     ed->params.EdgeDetectionOperator = EdgeDrawing::SOBEL;
