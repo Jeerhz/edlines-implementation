@@ -342,7 +342,8 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<std::vec
     // We iterate through all chains backward
     for (int chain_index = 0; chain_index < all_second_child_chains_in_longest_path.size(); chain_index++)
     {
-        if (all_second_child_chains_in_longest_path[chain_index]->is_extracted) continue;
+        if (all_second_child_chains_in_longest_path[chain_index]->is_extracted)
+            continue;
 
         cleanUpPixelChain(all_second_child_chains_in_longest_path[chain_index], anchorSegment, false);
         cleanUpPenultimateSegmentPixel(all_second_child_chains_in_longest_path[chain_index], anchorSegment, false);
@@ -361,7 +362,8 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<std::vec
     // We iterate through all chains forward
     for (int chain_index = 0; chain_index < all_first_child_chains_in_longest_path.size(); chain_index++)
     {
-        if(all_first_child_chains_in_longest_path[chain_index]->is_extracted) continue;
+        if (all_first_child_chains_in_longest_path[chain_index]->is_extracted)
+            continue;
         cleanUpPixelChain(all_first_child_chains_in_longest_path[chain_index], anchorSegment, true);
         cleanUpPenultimateSegmentPixel(all_first_child_chains_in_longest_path[chain_index], anchorSegment, true);
         // add pixels from this chain in forward order
@@ -382,7 +384,7 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<std::vec
 
     // Other long segments to the anchor segments
     // TIPS: We know that index 0 is anchor root chain and index 1 is the first child so we can skip them
-    for (int k=2; k < all_anchor_root_chains.size(); k++)
+    for (int k = 2; k < all_anchor_root_chains.size(); k++)
     {
         Chain *other_chain = all_anchor_root_chains[k];
         std::vector<Point> otherAnchorSegment;
@@ -393,7 +395,8 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<std::vec
         for (int chain_index = 0; chain_index < other_chain_chainChilds_in_longest_path.size(); chain_index++)
         {
             Chain *other_chain_childChain = other_chain_chainChilds_in_longest_path[chain_index];
-            if (other_chain_childChain->is_extracted) continue;
+            if (other_chain_childChain->is_extracted)
+                continue;
 
             cleanUpPixelChain(other_chain_childChain, otherAnchorSegment, true);
             cleanUpPenultimateSegmentPixel(other_chain_childChain, otherAnchorSegment, true);
@@ -404,11 +407,9 @@ void ED::extractSegmentsFromChain(Chain *anchor_chain_root, std::vector<std::vec
                 otherAnchorSegment.push_back(Point(pixel_offset % image_width, pixel_offset / image_width));
             }
             other_chain_childChain->is_extracted = true;
-        }   
+        }
         anchorSegments.push_back(otherAnchorSegment);
     }
-
-    
 }
 
 void ED::JoinAnchorPointsUsingSortedAnchors()
