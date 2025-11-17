@@ -496,10 +496,9 @@ void ED::JoinAnchorPointsUsingSortedAnchors()
                 total_pixels_in_anchor_chain--;
 
             Chain *new_process_stack_chain = new Chain(currentNode.node_direction, currentNode.parent_chain);
-
+            setChildToChain(new_process_stack_chain->parent_chain, new_process_stack_chain);
             // Explore from the stack node to add more pixels to the new created chain
             exploreChain(currentNode, new_process_stack_chain, total_pixels_in_anchor_chain);
-            setChildToChain(new_process_stack_chain->parent_chain, new_process_stack_chain);
         }
 
         if (total_pixels_in_anchor_chain < minPathLen)
