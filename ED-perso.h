@@ -19,6 +19,8 @@ public:
     cv::Mat getSmoothImage();
     cv::Mat getGradImage();
 
+    std::vector<std::vector<cv::Point>> getSegmentPoints();
+
 protected:
     int image_width;      // width of source image
     int image_height;     // height of source image

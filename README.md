@@ -1,6 +1,7 @@
 # EDLines Study Project
 
 This project compares two **EDLines implementations**:
+
 - Custom version in the root folder (`edlines-implementation`)
 - Original EDLib as a **git submodule** in `ED_Lib/`
 
@@ -59,6 +60,12 @@ Run the original and new versions with:
 
 ```bash
 make run IMAGE=<image_filename>
+```
+
+example:
+
+```bash
+make run IMAGE=billiard.jpg
 ```
 
 Results are saved in `results/`.

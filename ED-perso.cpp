@@ -30,6 +30,7 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, d
     gradOrientationImgPointer = new GradOrientation[image_width * image_height];
 
     bool isColorImage = (srcImage.channels() == 3);
+    std::cout << "Input image is " << (isColorImage ? "color" : "grayscale") << std::endl;
 
     if (isColorImage)
     {
@@ -45,20 +46,22 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, d
 
         if (_sigma == 1.0)
         {
-            GaussianBlur(ch[0], smooth_B, Size(5, 5), _sigma);
-            GaussianBlur(ch[1], smooth_G, Size(5, 5), _sigma);
-            GaussianBlur(ch[2], smooth_R, Size(5, 5), _sigma);
+            GaussianBlur(ch[0], smooth_B, Size(5, 5), sigma);
+            GaussianBlur(ch[1], smooth_G, Size(5, 5), sigma);
+            GaussianBlur(ch[2], smooth_R, Size(5, 5), sigma);
         }
         else
         {
-            GaussianBlur(ch[0], smooth_B, Size(), _sigma);
-            GaussianBlur(ch[1], smooth_G, Size(), _sigma);
-            GaussianBlur(ch[2], smooth_R, Size(), _sigma);
+            GaussianBlur(ch[0], smooth_B, Size(), sigma);
+            GaussianBlur(ch[1], smooth_G, Size(), sigma);
+            GaussianBlur(ch[2], smooth_R, Size(), sigma);
         }
 
         smoothR_ptr = smooth_R.data;
         smoothG_ptr = smooth_G.data;
         smoothB_ptr = smooth_B.data;
+
+        ComputeGradientMapByDiZenzo();
     }
 
     else
@@ -71,9 +74,10 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, d
             GaussianBlur(srcImage, smoothImage, Size(), sigma);
 
         smoothImgPointer = smoothImage.data;
+        std::cout << "Computing gradient map..." << std::endl;
+        ComputeGradient();
     }
 
-    ComputeGradient();
     ComputeAnchorPoints();
     JoinAnchorPointsUsingSortedAnchors();
 
@@ -175,6 +179,7 @@ void ED::ComputeGradient()
         }
     }
 }
+// This is part of EDColor, in this variant we use BGR channels and not Lab
 void ED::ComputeGradientMapByDiZenzo()
 {
     // Initialize gradient buffer
@@ -195,7 +200,9 @@ void ED::ComputeGradientMapByDiZenzo()
             int gyR = com1 - com2 + ((int)smoothR_ptr[(i + 1) * image_width + j] - (int)smoothR_ptr[(i - 1) * image_width + j]);
 
             // Prewitt-like differences for G channel
-            com1 = (int)smoothG_ptr[(i + 1) * image_width + j + 1] - (int)smoothG_ptr[(i - 1) * image_width + j - 1];
+            com1 = (int)smoothG_ptr[(i + 1) * image_width + j + 1] - (int)smoothG_ptr[(i - 1) *
+                                                                                          image_width +
+                                                                                      j - 1];
             com2 = (int)smoothG_ptr[(i - 1) * image_width + j + 1] - (int)smoothG_ptr[(i + 1) * image_width + j - 1];
             int gxG = com1 + com2 + ((int)smoothG_ptr[i * image_width + j + 1] - (int)smoothG_ptr[i * image_width + j - 1]);
             int gyG = com1 - com2 + ((int)smoothG_ptr[(i + 1) * image_width + j] - (int)smoothG_ptr[(i - 1) * image_width + j]);
@@ -705,4 +712,9 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain, int &total_
         process_stack.push(StackNode(current_node.offset, RIGHT, current_chain));
         process_stack.push(StackNode(current_node.offset, LEFT, current_chain));
     }
+}
+
+std::vector<std::vector<cv::Point>> ED::getSegmentPoints()
+{
+    return segmentPoints;
 }

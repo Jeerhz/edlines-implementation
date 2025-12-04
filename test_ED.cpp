@@ -53,6 +53,38 @@ int main(int argc, char **argv)
 
     Mat newEdgeImg = testED.getEdgeImage();
 
+    std::vector<std::vector<cv::Point>> segmentPoints = testED.getSegmentPoints();
+
+    // Create a color image and draw each segment in a different deterministic color
+    Mat segmentsImg = Mat::zeros(newEdgeImg.size(), CV_8UC3);
+
+    for (size_t i = 0; i < segmentPoints.size(); ++i)
+    {
+        const auto &seg = segmentPoints[i];
+        if (seg.empty())
+            continue;
+        // deterministic but varied color per segment
+        cv::Scalar color((i * 53) % 256, (i * 97) % 256, (i * 193) % 256); // B,G,R
+
+        if (seg.size() == 1)
+        {
+            const cv::Point &p = seg[0];
+            if (p.x >= 0 && p.x < segmentsImg.cols && p.y >= 0 && p.y < segmentsImg.rows)
+                segmentsImg.at<cv::Vec3b>(p) = cv::Vec3b((uchar)color[0], (uchar)color[1], (uchar)color[2]);
+        }
+        else
+        {
+            for (size_t j = 0; j + 1 < seg.size(); ++j)
+            {
+                cv::line(segmentsImg, seg[j], seg[j + 1], color, 1, cv::LINE_AA);
+            }
+        }
+    }
+
+    // Save colored segments image
+    imwrite("SegmentsEdgeImage.png", segmentsImg);
+    cout << "  - SegmentsEdgeImage.png" << endl;
+
     // Save anchor and edge images
     imwrite("EdgeImage_New.png", newEdgeImg);
 
