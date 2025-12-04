@@ -63,21 +63,14 @@ int main(int argc, char **argv)
         const auto &seg = segmentPoints[i];
         if (seg.empty())
             continue;
-        // deterministic but varied color per segment
-        cv::Scalar color((i * 53) % 256, (i * 97) % 256, (i * 193) % 256); // B,G,R
+        // deterministic but varied color per segment (B,G,R)
+        cv::Scalar color((i * 53) % 256, (i * 97) % 256, (i * 193) % 256);
 
-        if (seg.size() == 1)
+        // Color every point in the same segment with the same color
+        for (const cv::Point &p : seg)
         {
-            const cv::Point &p = seg[0];
             if (p.x >= 0 && p.x < segmentsImg.cols && p.y >= 0 && p.y < segmentsImg.rows)
-                segmentsImg.at<cv::Vec3b>(p) = cv::Vec3b((uchar)color[0], (uchar)color[1], (uchar)color[2]);
-        }
-        else
-        {
-            for (size_t j = 0; j + 1 < seg.size(); ++j)
-            {
-                cv::line(segmentsImg, seg[j], seg[j + 1], color, 1, cv::LINE_AA);
-            }
+                segmentsImg.at<cv::Vec3b>(p.y, p.x) = cv::Vec3b((uchar)color[0], (uchar)color[1], (uchar)color[2]);
         }
     }
 
