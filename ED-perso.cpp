@@ -11,6 +11,8 @@ using namespace std;
 ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, double _sigma, bool _sumFlag)
 {
     srcImage = _srcImage;
+
+    // detect if input is grayscale or BGR and prepare per-channel buffers for later use (Di Zenzo)
     image_height = srcImage.rows;
     image_width = srcImage.cols;
     gradThresh = _gradThresh;
@@ -21,19 +23,55 @@ ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, d
     process_stack = ProcessStack();
     segmentPoints = vector<vector<Point>>();
     edgeImage = Mat(image_height, image_width, CV_8UC1, Scalar(0));
-    smoothImage = Mat(image_height, image_width, CV_8UC1);
-    gradImage = Mat(image_height, image_width, CV_16SC1);
     srcImgPointer = srcImage.data;
-
-    if (sigma == 1.0)
-        GaussianBlur(srcImage, smoothImage, Size(5, 5), sigma);
-    else
-        GaussianBlur(srcImage, smoothImage, Size(), sigma);
-
-    smoothImgPointer = smoothImage.data;
+    gradImage = Mat(image_height, image_width, CV_16SC1);
     gradImgPointer = (short *)gradImage.data;
     edgeImgPointer = edgeImage.data;
     gradOrientationImgPointer = new GradOrientation[image_width * image_height];
+
+    bool isColorImage = (srcImage.channels() == 3);
+
+    if (isColorImage)
+    {
+        if (srcImage.type() != CV_8UC3)
+            srcImage.convertTo(srcImage, CV_8UC3);
+
+        std::vector<cv::Mat> ch(3);
+        cv::split(srcImage, ch);
+
+        smooth_B = Mat(image_height, image_width, CV_8UC1);
+        smooth_G = Mat(image_height, image_width, CV_8UC1);
+        smooth_R = Mat(image_height, image_width, CV_8UC1);
+
+        if (_sigma == 1.0)
+        {
+            GaussianBlur(ch[0], smooth_B, Size(5, 5), _sigma);
+            GaussianBlur(ch[1], smooth_G, Size(5, 5), _sigma);
+            GaussianBlur(ch[2], smooth_R, Size(5, 5), _sigma);
+        }
+        else
+        {
+            GaussianBlur(ch[0], smooth_B, Size(), _sigma);
+            GaussianBlur(ch[1], smooth_G, Size(), _sigma);
+            GaussianBlur(ch[2], smooth_R, Size(), _sigma);
+        }
+
+        smoothR_ptr = smooth_R.data;
+        smoothG_ptr = smooth_G.data;
+        smoothB_ptr = smooth_B.data;
+    }
+
+    else
+    {
+        smoothImage = Mat(image_height, image_width, CV_8UC1);
+
+        if (sigma == 1.0)
+            GaussianBlur(srcImage, smoothImage, Size(5, 5), sigma);
+        else
+            GaussianBlur(srcImage, smoothImage, Size(), sigma);
+
+        smoothImgPointer = smoothImage.data;
+    }
 
     ComputeGradient();
     ComputeAnchorPoints();
@@ -136,6 +174,66 @@ void ED::ComputeGradient()
             }
         }
     }
+}
+void ED::ComputeGradientMapByDiZenzo()
+{
+    // Initialize gradient buffer
+    memset(gradImgPointer, 0, sizeof(short) * image_width * image_height);
+
+    int max_val = 0;
+
+    for (int i = 1; i < image_height - 1; ++i)
+    {
+        for (int j = 1; j < image_width - 1; ++j)
+        {
+            int idx = i * image_width + j;
+
+            // Prewitt-like differences for R channel
+            int com1 = (int)smoothR_ptr[(i + 1) * image_width + j + 1] - (int)smoothR_ptr[(i - 1) * image_width + j - 1];
+            int com2 = (int)smoothR_ptr[(i - 1) * image_width + j + 1] - (int)smoothR_ptr[(i + 1) * image_width + j - 1];
+            int gxR = com1 + com2 + ((int)smoothR_ptr[i * image_width + j + 1] - (int)smoothR_ptr[i * image_width + j - 1]);
+            int gyR = com1 - com2 + ((int)smoothR_ptr[(i + 1) * image_width + j] - (int)smoothR_ptr[(i - 1) * image_width + j]);
+
+            // Prewitt-like differences for G channel
+            com1 = (int)smoothG_ptr[(i + 1) * image_width + j + 1] - (int)smoothG_ptr[(i - 1) * image_width + j - 1];
+            com2 = (int)smoothG_ptr[(i - 1) * image_width + j + 1] - (int)smoothG_ptr[(i + 1) * image_width + j - 1];
+            int gxG = com1 + com2 + ((int)smoothG_ptr[i * image_width + j + 1] - (int)smoothG_ptr[i * image_width + j - 1]);
+            int gyG = com1 - com2 + ((int)smoothG_ptr[(i + 1) * image_width + j] - (int)smoothG_ptr[(i - 1) * image_width + j]);
+
+            // Prewitt-like differences for B channel
+            com1 = (int)smoothB_ptr[(i + 1) * image_width + j + 1] - (int)smoothB_ptr[(i - 1) * image_width + j - 1];
+            com2 = (int)smoothB_ptr[(i - 1) * image_width + j + 1] - (int)smoothB_ptr[(i + 1) * image_width + j - 1];
+            int gxB = com1 + com2 + ((int)smoothB_ptr[i * image_width + j + 1] - (int)smoothB_ptr[i * image_width + j - 1]);
+            int gyB = com1 - com2 + ((int)smoothB_ptr[(i + 1) * image_width + j] - (int)smoothB_ptr[(i - 1) * image_width + j]);
+
+            // Di Zenzo tensor components
+            int gxx = gxR * gxR + gxG * gxG + gxB * gxB; // u.u
+            int gyy = gyR * gyR + gyG * gyG + gyB * gyB; // v.v
+            int gxy = gxR * gyR + gxG * gyG + gxB * gyB; // u.v
+
+            // Direction theta (gradient direction is perpendicular to edge)
+            double theta = 0.5 * atan2(2.0 * (double)gxy, (double)(gxx - gyy));
+
+            // Gradient magnitude (Di Zenzo)
+            double val = 0.5 * ((double)gxx + (double)gyy + (double)(gxx - gyy) * cos(2.0 * theta) + 2.0 * (double)gxy * sin(2.0 * theta));
+            int grad = (int)(sqrt(std::max(0.0, val)) + 0.5);
+
+            // Store orientation (gradient perpendicular to edge)
+            if (theta >= -3.14159 / 4.0 && theta <= 3.14159 / 4.0)
+                gradOrientationImgPointer[idx] = EDGE_VERTICAL;
+            else
+                gradOrientationImgPointer[idx] = EDGE_HORIZONTAL;
+
+            gradImgPointer[idx] = grad;
+            if (grad > max_val)
+                max_val = grad;
+        }
+    }
+
+    // Scale to 0-255
+    double scale = (max_val > 0) ? (255.0 / max_val) : 1.0;
+    for (int k = 0; k < image_width * image_height; ++k)
+        gradImgPointer[k] = (short)(gradImgPointer[k] * scale);
 }
 
 void ED::ComputeAnchorPoints()

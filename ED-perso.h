@@ -30,9 +30,14 @@ protected:
     uchar *smoothImgPointer; // pointer to smoothed image data (gaussian applied)
     int minPathLen;          // minimum length of an anchor chain
     cv::Mat srcImage;        // source image
+    // for EDColor
+    uchar *smoothG_ptr;
+    uchar *smoothR_ptr;
+    uchar *smoothB_ptr;
 
 private:
     void ComputeGradient();
+    void ComputeGradientMapByDiZenzo();
     void ComputeAnchorPoints();
     void JoinAnchorPointsUsingSortedAnchors();
     void exploreChain(StackNode &current_node, Chain *current_chain, int &total_pixels_in_anchor_chain);
@@ -56,6 +61,10 @@ private:
 
     cv::Mat edgeImage;
     cv::Mat gradImage;
+    // used for color images processing
+    cv::Mat smooth_R;
+    cv::Mat smooth_G;
+    cv::Mat smooth_B;
 
     GradOrientation *gradOrientationImgPointer; // pointer to direction image data. Used only in constructor for computing edges and segments
     ProcessStack process_stack;                 // stack for processing edge pixels during anchor joining
