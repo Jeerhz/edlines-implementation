@@ -417,21 +417,6 @@ void ED::cleanUpPenultimateSegmentPixel(Chain *chain, std::vector<cv::Point> &an
     }
 }
 
-void ED::cleanUpPixelChain(Chain *chain, std::vector<cv::Point> &anchorSegment, bool is_first_child)
-{
-    if (!chain || chain->pixels.size() < 2 || anchorSegment.empty())
-        return;
-
-    int chain_pixel_offset = is_first_child ? chain->pixels[1] : chain->pixels.end()[-2];
-    Point last_segment_pixel = anchorSegment.back();
-
-    if (areNeighbors(chain_pixel_offset, last_segment_pixel.y * image_width + last_segment_pixel.x))
-        if (is_first_child)
-            chain->pixels.erase(chain->pixels.begin());
-        else
-            chain->pixels.pop_back();
-}
-
 void ED::extractSecondChildChains(Chain *anchor_chain_root, std::vector<Point> &anchorSegment)
 {
     if (!anchor_chain_root || !anchor_chain_root->second_childChain)
@@ -447,7 +432,6 @@ void ED::extractSecondChildChains(Chain *anchor_chain_root, std::vector<Point> &
             continue;
 
         cleanUpPenultimateSegmentPixel(c, anchorSegment, false);
-        cleanUpPixelChain(c, anchorSegment, false);
 
         for (int pixel_index = (int)c->pixels.size() - 1; pixel_index >= 0; --pixel_index)
         {
@@ -481,7 +465,6 @@ void ED::extractFirstChildChains(Chain *anchor_chain_root, std::vector<Point> &a
             continue;
 
         cleanUpPenultimateSegmentPixel(c, anchorSegment, true);
-        cleanUpPixelChain(c, anchorSegment, true);
 
         for (size_t pixel_index = 0; pixel_index < c->pixels.size(); ++pixel_index)
         {
@@ -524,7 +507,6 @@ void ED::extractOtherChains(Chain *anchor_chain_root, std::vector<std::vector<Po
                 continue;
 
             cleanUpPenultimateSegmentPixel(other_chain_childChain, otherAnchorSegment, true);
-            cleanUpPixelChain(other_chain_childChain, otherAnchorSegment, true);
 
             for (size_t pixel_index = 0; pixel_index < other_chain_childChain->pixels.size(); ++pixel_index)
             {

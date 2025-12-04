@@ -55,7 +55,6 @@ private:
     bool validateNode(StackNode &node);
     bool areNeighbors(int offset1, int offset2);
     void cleanUpPenultimateSegmentPixel(Chain *chain, std::vector<cv::Point> &anchorSegment, bool is_first_child);
-    void cleanUpPixelChain(Chain *chain, std::vector<cv::Point> &anchorSegment, bool is_first_child);
     void revertChainEdgePixel(Chain *&chain);
 
     int anchorNb;
