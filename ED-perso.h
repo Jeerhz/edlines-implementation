@@ -1,6 +1,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
+#include <cmath>
 #include "Chain.h"
 
 #define ANCHOR_PIXEL 254
@@ -83,4 +84,14 @@ private:
     int anchorThresh;              // anchor point threshold
     GradientOperator gradOperator; // mask used in gradient calculation
     bool sumFlag;                  // flag for using sum of terms to compute gradient magnitude
+};
+
+class EDPF : public ED
+{
+public:
+    explicit EDPF(const cv::Mat &srcImage, int minPathLen = 10, double sigma = 1.0, bool sumFlag = true)
+        : ED(srcImage, PREWITT_OPERATOR, static_cast<int>(std::round(8.5)), 0, minPathLen, sigma, sumFlag) {}
+
+    EDPF() : ED() {}
+    EDPF(const EDPF &other) : ED(other) {}
 };

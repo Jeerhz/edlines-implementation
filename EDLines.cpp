@@ -6,7 +6,7 @@ using namespace std;
 
 EDLines::EDLines(Mat srcImage, double _line_error, int _min_line_len,
                  double _max_distance_between_two_lines, double _max_error)
-    : ED(srcImage, 36, 8)
+    : ED(srcImage, SOBEL_OPERATOR, 36, 8)
 {
     initializeLineDetection(_line_error, _min_line_len,
                             _max_distance_between_two_lines, _max_error);
