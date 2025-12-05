@@ -8,13 +8,14 @@
 using namespace cv;
 using namespace std;
 
-ED::ED(cv::Mat _srcImage, int _gradThresh, int _anchorThresh, int _minPathLen, double _sigma, bool _sumFlag)
+ED::ED(cv::Mat _srcImage, GradientOperator _gradOperator, int _gradThresh, int _anchorThresh, int _minPathLen, double _sigma, bool _sumFlag)
 {
     srcImage = _srcImage;
 
     // detect if input is grayscale or BGR and prepare per-channel buffers for later use (Di Zenzo)
     image_height = srcImage.rows;
     image_width = srcImage.cols;
+    gradOperator = _gradOperator;
     gradThresh = _gradThresh;
     anchorThresh = _anchorThresh;
     minPathLen = _minPathLen;
@@ -154,6 +155,7 @@ void ED::ComputeGradient()
         gradImgPointer[(row_index + 1) * image_width - 1] = gradThresh - 1;
     }
 
+    int centralWeight = (gradOperator == SOBEL_OPERATOR) ? 2 : 1;
     int pixels_above_threshold = 0;
     for (int row_index = 1; row_index < image_height - 1; row_index++)
     {
@@ -164,8 +166,11 @@ void ED::ComputeGradient()
             int com2 = smoothImgPointer[(row_index - 1) * image_width + col_index + 1] -
                        smoothImgPointer[(row_index + 1) * image_width + col_index - 1];
 
-            int gx = abs(com1 + com2 + 2 * (smoothImgPointer[row_index * image_width + col_index + 1] - smoothImgPointer[row_index * image_width + col_index - 1]));
-            int gy = abs(com1 - com2 + 2 * (smoothImgPointer[(row_index + 1) * image_width + col_index] - smoothImgPointer[(row_index - 1) * image_width + col_index]));
+            int right_minus_left = smoothImgPointer[row_index * image_width + col_index + 1] - smoothImgPointer[row_index * image_width + col_index - 1];
+            int down_minus_up = smoothImgPointer[(row_index + 1) * image_width + col_index] - smoothImgPointer[(row_index - 1) * image_width + col_index];
+
+            int gx = abs(com1 + com2 + centralWeight * right_minus_left);
+            int gy = abs(com1 - com2 + centralWeight * down_minus_up);
 
             int sum = sumFlag ? (gx + gy) : (int)sqrt((double)gx * gx + gy * gy);
             int index = row_index * image_width + col_index;

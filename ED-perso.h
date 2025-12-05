@@ -6,11 +6,19 @@
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
 
+// Sobel is the default value for ED
+// Prewitt operator is the default value for EDPF (changing to Sobel needs to modify gradient threshold due to quantization differences)
+enum GradientOperator
+{
+    PREWITT_OPERATOR = 101,
+    SOBEL_OPERATOR = 102
+};
+
 class ED
 {
 
 public:
-    ED(cv::Mat _srcImage, int _gradThresh = 20, int _anchorThresh = 0, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
+    ED(cv::Mat _srcImage, GradientOperator _gradOperator, int _gradThresh = 20, int _anchorThresh = 0, int _minPathLen = 10, double _sigma = 1.0, bool _sumFlag = true);
     ED(const ED &cpyObj);
     ED();
 
@@ -71,7 +79,8 @@ private:
     ProcessStack process_stack;                 // stack for processing edge pixels during anchor joining
     short *gradImgPointer;                      // pointer to gradient image data
 
-    int gradThresh;   // gradient threshold
-    int anchorThresh; // anchor point threshold
-    bool sumFlag;     // flag for using sum of terms to compute gradient magnitude
+    int gradThresh;                // gradient threshold
+    int anchorThresh;              // anchor point threshold
+    GradientOperator gradOperator; // mask used in gradient calculation
+    bool sumFlag;                  // flag for using sum of terms to compute gradient magnitude
 };
