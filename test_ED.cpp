@@ -76,7 +76,6 @@ int main(int argc, char **argv)
 
     // Save colored segments image
     imwrite("SegmentsEdgeImage.png", segmentsImg);
-    cout << "  - SegmentsEdgeImage.png" << endl;
 
     // Save anchor and edge images
     imwrite("EdgeImage_New.png", newEdgeImg);
@@ -102,10 +101,6 @@ int main(int argc, char **argv)
 
     cout << "\nSaved line images:" << endl;
     cout << "  - LineImage_New.png" << endl;
-
-    cout << "\n#################################################" << endl;
-    cout << "All comparisons completed successfully.\n";
-    cout << "#################################################\n";
 
     // -------------------------------
     // 3. NEW EDPF
@@ -147,6 +142,10 @@ int main(int argc, char **argv)
     // Save colored segments image for EDPF
     imwrite("SegmentsEdgeImage_EDPF.png", edpfSegmentsImg);
     cout << "  - SegmentsEdgeImage_EDPF.png" << endl;
+
+    cout << "\n#################################################" << endl;
+    cout << "All comparisons completed successfully.\n";
+    cout << "#################################################\n";
 
     return 0;
 }
