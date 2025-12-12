@@ -107,5 +107,46 @@ int main(int argc, char **argv)
     cout << "All comparisons completed successfully.\n";
     cout << "#################################################\n";
 
+    // -------------------------------
+    // 3. NEW EDPF
+    // -------------------------------
+    tm.reset();
+    tm.start();
+    EDPF edpf = EDPF(testImg);
+    tm.stop();
+    double edpfTime = tm.getTimeMilli();
+    cout << "EDPF Implementation           : " << edpfTime << " ms" << endl;
+
+    // Get EDPF edge image and segments
+    Mat edpfEdgeImg = edpf.getEdgeImage();
+    std::vector<std::vector<cv::Point>> edpfSegmentPoints = edpf.getSegmentPoints();
+
+    // Save EDPF edge image
+    imwrite("EdgeImage_EDPF.png", edpfEdgeImg);
+    cout << "  - EdgeImage_EDPF.png" << endl;
+
+    // Create a color image and draw each EDPF segment in a different deterministic color
+    Mat edpfSegmentsImg = Mat::zeros(edpfEdgeImg.size(), CV_8UC3);
+
+    for (size_t i = 0; i < edpfSegmentPoints.size(); ++i)
+    {
+        const auto &seg = edpfSegmentPoints[i];
+        if (seg.empty())
+            continue;
+        // deterministic but varied color per segment (B,G,R)
+        cv::Scalar color((i * 53) % 256, (i * 97) % 256, (i * 193) % 256);
+
+        // Color every point in the same segment with the same color
+        for (const cv::Point &p : seg)
+        {
+            if (p.x >= 0 && p.x < edpfSegmentsImg.cols && p.y >= 0 && p.y < edpfSegmentsImg.rows)
+                edpfSegmentsImg.at<cv::Vec3b>(p.y, p.x) = cv::Vec3b((uchar)color[0], (uchar)color[1], (uchar)color[2]);
+        }
+    }
+
+    // Save colored segments image for EDPF
+    imwrite("SegmentsEdgeImage_EDPF.png", edpfSegmentsImg);
+    cout << "  - SegmentsEdgeImage_EDPF.png" << endl;
+
     return 0;
 }

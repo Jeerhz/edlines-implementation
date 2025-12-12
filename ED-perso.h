@@ -7,6 +7,10 @@
 #define ANCHOR_PIXEL 254
 #define EDGE_PIXEL 255
 
+// Follow recommandations and set the number of false alarms to 1 per image
+#define EPSILON 1.0
+#define MAX_GRAD_VALUE 128 * 256
+
 // Sobel is the default value for ED
 // Prewitt operator is the default value for EDPF (changing to Sobel needs to modify gradient threshold due to quantization differences)
 enum GradientOperator
@@ -39,12 +43,14 @@ protected:
     cv::Mat smoothImage;     // smoothed image after applying Gaussian filter
     uchar *edgeImgPointer;   // pointer to edge image data
     uchar *smoothImgPointer; // pointer to smoothed image data (gaussian applied)
+    short *gradImgPointer;   // pointer to gradient image data
     int minPathLen;          // minimum length of an anchor chain
     cv::Mat srcImage;        // source image
+
     // for EDColor
+    uchar *smoothB_ptr;
     uchar *smoothG_ptr;
     uchar *smoothR_ptr;
-    uchar *smoothB_ptr;
 
 private:
     void ComputeGradient();
@@ -78,7 +84,6 @@ private:
 
     GradOrientation *gradOrientationImgPointer; // pointer to direction image data. Used only in constructor for computing edges and segments
     ProcessStack process_stack;                 // stack for processing edge pixels during anchor joining
-    short *gradImgPointer;                      // pointer to gradient image data
 
     int gradThresh;                // gradient threshold
     int anchorThresh;              // anchor point threshold
@@ -86,12 +91,22 @@ private:
     bool sumFlag;                  // flag for using sum of terms to compute gradient magnitude
 };
 
+// Declaration of EDPF class inheriting from ED
 class EDPF : public ED
 {
 public:
-    explicit EDPF(const cv::Mat &srcImage, int minPathLen = 10, double sigma = 1.0, bool sumFlag = true)
-        : ED(srcImage, PREWITT_OPERATOR, static_cast<int>(std::round(8.5)), 0, minPathLen, sigma, sumFlag) {}
+    EDPF(cv::Mat _srcImage);
 
-    EDPF() : ED() {}
-    EDPF(const EDPF &other) : ED(other) {}
+private:
+    int number_segment_pieces; //  number of segment pieces used in nfa calculation
+    double *gradient_cdf;      // CDF of gradient magnitudes also used in nfa calculation
+
+    // Method to compute the nfa of a segment and validate edge segments based on Helmholtz principle
+    void validateEdgeSegments();
+    void computeNumberSegmentPieces();
+    void computeGradientCDF();
+    void extractValidatedEdgeSegments();
+    void testSegmentPiece(int segment_idx, int start_idx, int end_idx);
+    void extractNewSegments();
+    double NFA(double prob, int len);
 };

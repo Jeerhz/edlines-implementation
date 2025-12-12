@@ -79,6 +79,17 @@ ED::ED(cv::Mat _srcImage, GradientOperator _gradOperator, int _gradThresh, int _
         ComputeGradient();
     }
 
+    smoothImage = Mat(image_height, image_width, CV_8UC1);
+
+    if (sigma == 1.0)
+        GaussianBlur(srcImage, smoothImage, Size(5, 5), sigma);
+    else
+        GaussianBlur(srcImage, smoothImage, Size(), sigma);
+
+    smoothImgPointer = smoothImage.data;
+    std::cout << "Computing gradient map..." << std::endl;
+    ComputeGradient();
+
     ComputeAnchorPoints();
     JoinAnchorPointsUsingSortedAnchors();
 
@@ -704,4 +715,197 @@ void ED::exploreChain(StackNode &current_node, Chain *current_chain, int &total_
 std::vector<std::vector<cv::Point>> ED::getSegmentPoints()
 {
     return segmentPoints;
+}
+
+// EDPF definition
+// Value of gradient threshold should be computed based on the impact of pixel quantization on gradient magnitude calculation
+// Then it is dependent of the operator mask used (Sobel, Prewitt, etc.)
+// The anchor value is declared to be 0 in the article, the default value in official implementation is 9
+EDPF::EDPF(cv::Mat _srcImage)
+    : ED(_srcImage, PREWITT_OPERATOR, 9, 1)
+{
+
+    computeNumberSegmentPieces();
+    computeGradientCDF();
+    validateEdgeSegments();
+}
+
+void EDPF::computeNumberSegmentPieces()
+{
+    number_segment_pieces = 0;
+    for (int i = 0; i < segmentPoints.size(); i++)
+    {
+        int len = (int)segmentPoints[i].size();
+        number_segment_pieces += (len * (len - 1)) / 2;
+    }
+}
+
+void EDPF::computeGradientCDF()
+{
+    // Cumulative distribution (CDF) of gradient magnitudes:
+    // gradient_cdf[i] = proportion of pixels with gradient <= i
+    gradient_cdf = new double[MAX_GRAD_VALUE];
+    int *gradient_cumulative_histogram = new int[MAX_GRAD_VALUE];
+
+    for (int i = 0; i < image_width * image_height; i++)
+        gradient_cumulative_histogram[gradImgPointer[i]]++;
+
+    // Compute cumulative histogram
+    for (int i = 1; i <= MAX_GRAD_VALUE; i++)
+        gradient_cumulative_histogram[i] += gradient_cumulative_histogram[i - 1];
+
+    // Compute gradient CDF array
+    for (int i = 0; i <= MAX_GRAD_VALUE; i++)
+    {
+        gradient_cdf[i] = ((double)gradient_cumulative_histogram[i] / (double)(image_height * image_width));
+    }
+}
+
+double EDPF::NFA(double prob, int len)
+{
+    double nfa = number_segment_pieces;
+    for (int i = 0; i < len && nfa > EPSILON; i++)
+        nfa *= prob;
+
+    return nfa;
+}
+
+void EDPF::testSegmentPiece(int segment_idx, int start_idx, int end_idx)
+{
+
+    int chainLen = end_idx - start_idx + 1;
+    if (chainLen < minPathLen)
+        return;
+
+    // Test from start_idx to end_idx. If OK, then we are done. Otherwise, split into two and
+    // recursively test the left & right halves
+
+    // First find the min. gradient along the segment
+    int minGrad = 1 << 30; // 1 << 30 computes 1 * 2^30 = 1073741824
+    int minGradIndex;
+    for (int k = start_idx; k <= end_idx; k++)
+    {
+        int point_row = segmentPoints[segment_idx][k].y;
+        int point_col = segmentPoints[segment_idx][k].x;
+        if (gradImgPointer[point_row * image_width + point_col] < minGrad)
+        {
+            minGrad = gradImgPointer[point_row * image_width + point_col];
+            minGradIndex = k;
+        }
+    } // end-for
+
+    // Compute nfa
+    double nfa = NFA(gradient_cdf[minGrad], (int)chainLen);
+
+    if (nfa <= EPSILON)
+    {
+        for (int k = start_idx; k <= end_idx; k++)
+        {
+            int point_row = segmentPoints[segment_idx][k].y;
+            int point_col = segmentPoints[segment_idx][k].x;
+
+            edgeImgPointer[point_row * image_width + point_col] = 255;
+        }
+
+        return;
+    }
+
+    // We divide at the point where the gradient is the minimum starting from both ends
+    int minGradIndexFromEnd = minGradIndex - 1;
+    while (minGradIndexFromEnd > start_idx)
+    {
+        int point_row = segmentPoints[segment_idx][minGradIndexFromEnd].y;
+        int point_col = segmentPoints[segment_idx][minGradIndexFromEnd].x;
+
+        if (gradImgPointer[point_row * image_width + point_col] <= minGrad)
+            minGradIndexFromEnd--;
+        else
+            break;
+    } // end-while
+
+    int minGradIndexFromStart = minGradIndex + 1;
+    while (minGradIndexFromStart < end_idx)
+    {
+        int point_row = segmentPoints[segment_idx][minGradIndexFromStart].y;
+        int point_col = segmentPoints[segment_idx][minGradIndexFromStart].x;
+
+        if (gradImgPointer[point_row * image_width + point_col] <= minGrad)
+            minGradIndexFromStart++;
+        else
+            break;
+    }
+
+    testSegmentPiece(segment_idx, start_idx, minGradIndexFromEnd);
+    testSegmentPiece(segment_idx, minGradIndexFromStart, end_idx);
+}
+
+void EDPF::validateEdgeSegments()
+{
+    memset(edgeImgPointer, 0, image_width * image_height); // clear edge image as we will re-draw the valid edges
+    // Validate segments
+    for (int segment_idx = 0; segment_idx < segmentPoints.size(); segment_idx++)
+    {
+        testSegmentPiece(segment_idx, 0, (int)segmentPoints[segment_idx].size() - 1);
+    } // end-for
+
+    extractNewSegments();
+
+    // clean space
+    delete[] gradient_cdf;
+}
+
+//----------------------------------------------------------------------------------------------
+// After the validation of the edge segments, extracts the valid ones
+// In other words, updates the valid segments' pixel arrays and their lengths
+//
+void EDPF::extractNewSegments()
+{
+    vector<vector<Point>> validSegments;
+    int noSegments = 0;
+
+    for (int i = 0; i < segmentPoints.size(); i++)
+    {
+        int start = 0;
+        while (start < segmentPoints[i].size())
+        {
+
+            while (start < segmentPoints[i].size())
+            {
+                int r = segmentPoints[i][start].y;
+                int c = segmentPoints[i][start].x;
+
+                if (edgeImgPointer[r * image_width + c])
+                    break;
+                start++;
+            } // end-while
+
+            int end = start + 1;
+            while (end < segmentPoints[i].size())
+            {
+                int r = segmentPoints[i][end].y;
+                int c = segmentPoints[i][end].x;
+
+                if (edgeImgPointer[r * image_width + c] == 0)
+                    break;
+                end++;
+            } // end-while
+
+            int len = end - start;
+            if (len >= 10)
+            {
+                // A new segment. Accepted only only long enough (whatever that means)
+                // segments[noSegments].pixels = &map->segments[i].pixels[start];
+                // segments[noSegments].noPixels = len;
+                validSegments.push_back(vector<Point>());
+                vector<Point> subVec(&segmentPoints[i][start], &segmentPoints[i][end]);
+                validSegments[noSegments] = subVec;
+                noSegments++;
+            } // end-else
+
+            start = end + 1;
+        } // end-while
+    } // end-for
+
+    // Copy to ed
+    segmentPoints = validSegments;
 }
