@@ -11,7 +11,6 @@ using namespace std;
 ED::ED(cv::Mat _srcImage, GradientOperator _gradOperator, int _gradThresh, int _anchorThresh, int _minPathLen, double _sigma, bool _sumFlag)
 {
     srcImage = _srcImage;
-
     // detect if input is grayscale or BGR and prepare per-channel buffers for later use (Di Zenzo)
     image_height = srcImage.rows;
     image_width = srcImage.cols;
@@ -45,7 +44,7 @@ ED::ED(cv::Mat _srcImage, GradientOperator _gradOperator, int _gradThresh, int _
         smooth_G = Mat(image_height, image_width, CV_8UC1);
         smooth_R = Mat(image_height, image_width, CV_8UC1);
 
-        if (_sigma == 1.0)
+        if (sigma == 1.0)
         {
             GaussianBlur(ch[0], smooth_B, Size(5, 5), sigma);
             GaussianBlur(ch[1], smooth_G, Size(5, 5), sigma);
@@ -796,7 +795,7 @@ void EDPF::testSegmentPiece(int segment_idx, int start_idx, int end_idx)
 
     // Compute nfa
     double prob = gradient_cdf[minGrad];
-    double nfa = NFA(prob, (int)chainLen);
+    double nfa = NFA(1 - prob, (int)chainLen);
 
     if (nfa <= EPSILON)
     {
