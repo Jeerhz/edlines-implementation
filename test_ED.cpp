@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     // -------------------------------
     tm.reset();
     tm.start();
-    ED testED = ED(testImg, SOBEL_OPERATOR, 36, 8, 10, 1.0, true);
+    ED testED = ED(testImg, LSD_OPERATOR, 6, 1, 10, 1.0, true);
     tm.stop();
     double newEdTime = tm.getTimeMilli();
     cout << "New ED Implementation          : " << newEdTime << " ms" << endl;

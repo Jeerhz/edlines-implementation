@@ -16,7 +16,8 @@
 enum GradientOperator
 {
     PREWITT_OPERATOR = 101,
-    SOBEL_OPERATOR = 102
+    SOBEL_OPERATOR = 102,
+    LSD_OPERATOR = 103
 };
 
 class ED

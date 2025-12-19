@@ -150,46 +150,65 @@ Mat ED::getGradImage()
     convertScaleAbs(gradImage, result8UC1);
     return result8UC1;
 }
-
+// Compute gradient magnitude and orientation using Sobel or Prewitt operator
 void ED::ComputeGradient()
 {
-    // Set borders to below threshold
-    for (int col_index = 0; col_index < image_width; col_index++)
+    // Initialize gradient image for row = 0, row = height-1, column=0, column=width-1
+    for (int j = 0; j < image_width; j++)
     {
-        gradImgPointer[col_index] = gradThresh - 1;
-        gradImgPointer[(image_height - 1) * image_width + col_index] = gradThresh - 1;
+        gradImgPointer[j] = gradImgPointer[(image_height - 1) * image_width + j] = gradThresh - 1;
     }
-    for (int row_index = 1; row_index < image_height - 1; row_index++)
+    for (int i = 1; i < image_height - 1; i++)
     {
-        gradImgPointer[row_index * image_width] = gradThresh - 1;
-        gradImgPointer[(row_index + 1) * image_width - 1] = gradThresh - 1;
+        gradImgPointer[i * image_width] = gradImgPointer[(i + 1) * image_width - 1] = gradThresh - 1;
     }
 
-    int centralWeight = (gradOperator == SOBEL_OPERATOR) ? 2 : 1;
-    int pixels_above_threshold = 0;
-    for (int row_index = 1; row_index < image_height - 1; row_index++)
+    for (int i = 1; i < image_height - 1; i++)
     {
-        for (int col_index = 1; col_index < image_width - 1; col_index++)
+        for (int j = 1; j < image_width - 1; j++)
         {
-            int com1 = smoothImgPointer[(row_index + 1) * image_width + col_index + 1] -
-                       smoothImgPointer[(row_index - 1) * image_width + col_index - 1];
-            int com2 = smoothImgPointer[(row_index - 1) * image_width + col_index + 1] -
-                       smoothImgPointer[(row_index + 1) * image_width + col_index - 1];
 
-            int right_minus_left = smoothImgPointer[row_index * image_width + col_index + 1] - smoothImgPointer[row_index * image_width + col_index - 1];
-            int down_minus_up = smoothImgPointer[(row_index + 1) * image_width + col_index] - smoothImgPointer[(row_index - 1) * image_width + col_index];
+            int com1 = smoothImgPointer[(i + 1) * image_width + j + 1] - smoothImgPointer[(i - 1) * image_width + j - 1];
+            int com2 = smoothImgPointer[(i - 1) * image_width + j + 1] - smoothImgPointer[(i + 1) * image_width + j - 1];
 
-            int gx = abs(com1 + com2 + centralWeight * right_minus_left);
-            int gy = abs(com1 - com2 + centralWeight * down_minus_up);
+            int gx;
+            int gy;
 
-            int sum = sumFlag ? (gx + gy) : (int)sqrt((double)gx * gx + gy * gy);
-            int index = row_index * image_width + col_index;
+            switch (gradOperator)
+            {
+            case PREWITT_OPERATOR:
+                gx = abs(com1 + com2 + (smoothImgPointer[i * image_width + j + 1] - smoothImgPointer[i * image_width + j - 1]));
+                gy = abs(com1 - com2 + (smoothImgPointer[(i + 1) * image_width + j] - smoothImgPointer[(i - 1) * image_width + j]));
+                break;
+            case SOBEL_OPERATOR:
+                gx = abs(com1 + com2 + 2 * (smoothImgPointer[i * image_width + j + 1] - smoothImgPointer[i * image_width + j - 1]));
+                gy = abs(com1 - com2 + 2 * (smoothImgPointer[(i + 1) * image_width + j] - smoothImgPointer[(i - 1) * image_width + j]));
+                break;
+            case LSD_OPERATOR:
+                // com1 and com2 differs from previous operators, because LSD has 2x2 kernel
+                int com1 = smoothImgPointer[(i + 1) * image_width + j + 1] - smoothImgPointer[i * image_width + j];
+                int com2 = smoothImgPointer[i * image_width + j + 1] - smoothImgPointer[(i + 1) * image_width + j];
+
+                gx = abs(com1 + com2);
+                gy = abs(com1 - com2);
+            }
+
+            int sum;
+
+            if (sumFlag)
+                sum = gx + gy;
+            else
+                sum = (int)sqrt((double)gx * gx + gy * gy);
+
+            int index = i * image_width + j;
             gradImgPointer[index] = sum;
 
             if (sum >= gradThresh)
             {
-                pixels_above_threshold++;
-                gradOrientationImgPointer[index] = (gx >= gy) ? EDGE_VERTICAL : EDGE_HORIZONTAL;
+                if (gx >= gy)
+                    gradOrientationImgPointer[index] = EDGE_VERTICAL;
+                else
+                    gradOrientationImgPointer[index] = EDGE_HORIZONTAL;
             }
         }
     }
@@ -723,7 +742,8 @@ std::vector<std::vector<cv::Point>> ED::getSegmentPoints()
 EDPF::EDPF(cv::Mat _srcImage)
     : ED(_srcImage, PREWITT_OPERATOR, 11, 3)
 {
-
+    sigma /= 2.5;
+    GaussianBlur(srcImage, smoothImage, Size(), sigma); // calculate kernel from sigma
     computeNumberSegmentPieces();
     computeGradientCDF();
     validateEdgeSegments();
@@ -766,10 +786,9 @@ void EDPF::computeGradientCDF()
 double EDPF::NFA(double prob, int len)
 {
     double nfa = number_segment_pieces;
-    for (int i = 0; i < len && nfa > EPSILON; i++)
-    {
+    for (int i = 0; i < (int)(len / 2) && nfa > EPSILON; i++)
         nfa *= prob;
-    }
+
     return nfa;
 }
 
