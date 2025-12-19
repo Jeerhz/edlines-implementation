@@ -17,6 +17,8 @@ add_library(EDLib STATIC
         EDLines.h
         ED-perso.cpp
         ED-perso.h
+        EDPF.h
+        EDPF.cpp
         Chain.cpp
         Chain.h
         NFA.cpp
